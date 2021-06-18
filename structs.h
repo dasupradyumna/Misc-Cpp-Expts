@@ -1,7 +1,7 @@
 #ifndef __structs_h__
 #define __structs_h__
 
-#include <cstddef>          // for `std::size_t`
+#include <cstddef>          // std::size_t
 
 using size_t = std::size_t;
 
@@ -35,19 +35,24 @@ class Array2d
 
     const size_t __rows;                                    // number of rows in the 2d array
     const size_t __cols;                                    // number of columns in the 2d array
-    NUM_TYPE* const __data;                                 // the actual data stored in the 2d array
-    Row* const __ref;                                       // pointer to `Row` object for indexing columns
+    NUM_TYPE* __data;                                       // the actual data stored in the 2d array
+    Row* __ref;                                             // pointer to `Row` object for indexing columns
 
 public:
 
     //  TODO  add support for initializer list in constructor (for const Array2d objects)
     Array2d( const size_t rows, const size_t cols );        // initializes `rows` and `cols`, allocates memory for `data`
+    Array2d( const Array2d& copy );                         // custom copy constructor to make sure pointers are not copied directly
     ~Array2d();                                             // deallocates memory held by `data`
     const size_t rows() const;                              // returns the number of rows in the 2d array
     const size_t cols() const;                              // returns the number of columns in the 2d array
     NUM_TYPE* begin() const;                                // returns iterator to the start of the array
     const NUM_TYPE* const end() const;                      // returns iterator to one position after the end of the array
     Row& operator[]( const size_t row ) const;              // bounds check and returns reference to desired row
+    void operator=( const Array2d other );                  // deep copies the contents of `other`
+    Array2d operator*( const Array2d other ) const;         // multiply 2 matrices, if their dimensions are valid
+    void operator*=( const Array2d other );                 // overloading shorthand operator
+    void view() const;                                      // prints the contents of the array
 };
 
 void testArray2d();                                         // demo function

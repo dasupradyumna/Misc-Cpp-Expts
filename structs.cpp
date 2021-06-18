@@ -2,9 +2,11 @@
 
 #include "structs.h"
 
-#include <cstdint>          // for `std::int_fast16_t`, `std::int_fast32_t` and `std::int_fast64_t`
-#include <iostream>         // for `std::cin`, `std::cout` and `std::cerr`
-#include <stdexcept>        // for `std::out_of_range`
+#include <cstdlib>          // std::srand and std::rand
+#include <cstdint>          // std::int_fast16_t, std::int_fast32_t, std::int_fast64_t
+#include <ctime>            // std::time
+#include <iostream>         // std::cin, std::cout, std::cerr
+#include <stdexcept>        // std::out_of_range
 
 //////////////////////////////////// 2D Flat Rectangular Array //////////////////////////////////////
 
@@ -34,6 +36,23 @@ Array2d<NUM_TYPE>::Array2d( const size_t rows, const size_t cols ) :
     __data { new NUM_TYPE[rows * cols] { 0 } },
     __ref { new Row { this } }
 {}
+
+/* Custom copy constructor, called whenever object is passed by value.
+ * Default copy constructor would copy the pointers directly.
+ * So when the copy goes out of scope, its destructor will delete the pointers allocated by original object.
+ * Later, when the original goes out of scope, its destructor will try to delete the dangling pointer and crash.
+ * This constructor creates a deep copy to prevent the above issue.
+ */
+template<typename NUM_TYPE>
+Array2d<NUM_TYPE>::Array2d( const Array2d& copy ) :
+    __rows { copy.__rows },
+    __cols { copy.__cols },
+    __data { new NUM_TYPE[__rows * __cols] { 0 } },     // would be __data { copy.__data } in default copy constructor
+    __ref { new Row { this } }                          // would be __row { copy.__row} in default copy constructor
+{
+    for ( size_t i { 0ULL }; i < __rows * __cols; ++i )
+        __data[i] = copy.__data[i];                     // copying only the data from original's pointer to copy's distinct pointer
+}
 
 template<typename NUM_TYPE>
 Array2d<NUM_TYPE>::~Array2d()
@@ -73,6 +92,65 @@ typename Array2d<NUM_TYPE>::Row& Array2d<NUM_TYPE>::operator[]( const size_t row
     return *__ref;
 }
 
+/* Overload of assignment operator for Array2d.
+ * Rows and columns of LHS and RHS are expected to be equal before assignment.
+ * All the data pointed by RHS pointer is copied to LHS pointer, takes O(n) time.
+ * Pointers themselves are not copied to avoid multiple references to same data.
+ */
+template<typename NUM_TYPE>
+void Array2d<NUM_TYPE>::operator=( const Array2d<NUM_TYPE> other )
+{
+    if ( this->__rows != other.__rows || this->__cols != other.__cols )
+        throw std::invalid_argument { "error: source and target matrix dimensions do not match.\n" };
+
+    // deep copying the data from RHS to LHS
+    for ( size_t i { 0ULL }; i < __rows * __cols; ++i )
+        __data[i] = other.__data[i];
+}
+
+/* Overload for multiplication of two Array2d objects.
+ * Checks the matrix multiplication condition of equal dimensions.
+ * Naive matrix multiplication algorithm, and return the resultant Array2d object.
+ */
+template<typename NUM_TYPE>
+Array2d<NUM_TYPE> Array2d<NUM_TYPE>::operator*( const Array2d<NUM_TYPE> other ) const
+{
+    if ( this->__cols != other.__rows )
+        throw std::invalid_argument { "error: the matrices cannot be multipled "
+        "since no. of columns of first matrix and no. of rows of second matrix are not equal.\n" };
+
+    Array2d<NUM_TYPE> result { this->__rows, other.__cols };
+    for ( size_t m { 0ULL }; m < result.__rows; ++m )
+        for ( size_t n { 0ULL }; n < result.__cols; ++n )
+            for ( size_t p { 0ULL }; p < this->__cols; ++p )
+                result[m][n] += (*this)[m][p] * other[p][n];
+
+    return result;
+}
+
+// Overload for shorthand multiplication, straightforward implementation
+template<typename NUM_TYPE>
+void Array2d<NUM_TYPE>::operator*=( const Array2d<NUM_TYPE> other )
+{
+    if ( this->__cols != other.__rows )
+        throw std::invalid_argument { "error: the matrices cannot be multipled "
+        "since the dimensions do not match as required.\n" };
+
+    *this = *this * other;
+}
+
+// Prints the contents of the array in its given shape
+template<typename NUM_TYPE>
+void Array2d<NUM_TYPE>::view() const
+{
+    for ( size_t row { 0ULL }; row < __rows; ++row )
+    {
+        for ( size_t col { 0ULL }; col < __cols; ++col )
+            std::cout << *(__data + row * __cols + col) << ' ';
+        std::cout << '\n';
+    }
+}
+
 /* Instantiating template classes for the datatypes that can be used with the `Array2d` class.
  * Not doing this will throw a linker error since it can not find the type-specific implementation
  * of the methods it sees in template class anywhere. By compiling the below type-instances, the linker
@@ -84,13 +162,15 @@ template class Array2d<float>;
 template class Array2d<double>;
 
 
-// simple test function for `Array2d` demo
+// Simple test function for `Array2d` demo
 void testArray2d()
 {
+    std::srand( static_cast<unsigned int>(std::time( nullptr )) );
+
     const Array2d<double> A { 3, 2 };
 
     // for ( auto& el : A )                        // testing for-each loop implementation
-    //     el = rand() / 1000.0;
+    //     el = std::rand() / 1000.0;
 
     // while ( true )                              // testing traditional [][] indexing with bounds check
     // {
@@ -109,12 +189,27 @@ void testArray2d()
     //     }
     // }
 
-    for ( size_t i { 0ULL }; i < A.rows(); ++i )      // testing rows() and cols() methods
-    {
-        for ( size_t j { 0ULL }; j < A.cols(); ++j )
-            std::cout << A[i][j] << ' ';
-        std::cout << '\n';
-    }
+    // testing rows(), cols() and view() methods
+    std::cout << "Shape of A : " << A.rows() << ' ' << A.cols() << "\n\n";
+    A.view();
+    std::cout << '\n';
+
+    Array2d<int> x { 2, 2 };
+    Array2d<int> y { 2, 2 };
+
+    for ( auto& el : x )
+        el = std::rand() % 10 - 5;
+    for ( auto& el : y )
+        el = std::rand() % 10 - 5;
+
+    x.view();
+    std::cout << '\n';
+    y.view();
+    std::cout << '\n';
+
+    Array2d<int> z { x * y };       // testing multiplication overload
+    z *= x;                         // testing shorthand overload
+    z.view();
 }
 
 
@@ -170,12 +265,12 @@ typename IntRange<INT_TYPE>::Iterator IntRange<INT_TYPE>::begin() { return Itera
 template<typename INT_TYPE>
 const INT_TYPE IntRange<INT_TYPE>::end() { return __end; }
 
-// template class instantiations for desired datatypes
+// Template class instantiations for desired datatypes
 template class IntRange<std::int_fast32_t>;
 template class IntRange<std::int_fast64_t>;
 
 
-// simple test function for `IntRange` demo
+// Simple test function for `IntRange` demo
 void testIntRange()
 {
     int count { 0 };
