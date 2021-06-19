@@ -1,13 +1,16 @@
 // Implementations of algorithms described in `fibonacci.h`
 
 #include "fibonacci.h"
+#include "structs.h"        // Array2d<int>
 
 #include <vector>
 
-int fibonacci_rdp( int count )
+int fibonacci_rdp( int count )  // exponential time
 {
+    // stores the calculated values of the fibonacci series
     static std::vector<int> series { 0, 1 };
 
+    // if value has not been calculated previously, add it
     if ( count >= series.size() )
         series.push_back(
             fibonacci_rdp( count - 1 ) +
@@ -17,14 +20,17 @@ int fibonacci_rdp( int count )
     return series[count];
 }
 
-int fibonacci_idp( int count )
+// commented code for non-memoized algorithm
+int fibonacci_idp( int count )  // linear time
 {
     // if ( count == 0 ) return 0;
+    // stores the calculated values of the fibonacci series
     static std::vector<int> series { 0, 1 };
 
     // int A { 0 };
     // int B { 1 };
 
+    // iteratively calculate fibonacci series, if not in stored vector
     auto N { series.size() };
     while ( count >= N ) // ( --count )
     {
@@ -41,36 +47,64 @@ int fibonacci_idp( int count )
 
 int fibonacci_mat( int count )
 {
-    if ( count == 0 ) return 0;
+    // return count itself for 0, 1
+    if ( count < 2 ) return count;
 
-    auto mat_mult_accumulate = [ ] ( int A[2][2], int B[2][2] )
-    {
-        A[0][0] = A[0][0] * B[0][0] + A[0][1] * B[1][0];
-        A[0][1] = A[0][0] * B[0][1] + A[0][1] * B[1][1];
-        A[1][0] = A[1][0] * B[0][0] + A[1][1] * B[1][0];
-        A[1][1] = A[1][0] * B[0][1] + A[1][1] * B[1][1];
-    };
+    //  TODO  change this code after Array2d gets initializer list support
 
-    int M[2][2] {
-        { 1, 1 },
-        { 1, 0 }
-    };
-    int result[2][2] { 0 };
+    // array that contains the fibonacci matrix to be exponentiated
+    Array2d<int> M { 2, 2 };
+    // {
+    //     { 1, 1 },
+    //     { 1, 0 }
+    // };
+    M[0][0] = 1;
+    M[0][1] = 1;
+    M[1][0] = 1;
 
-    while ( count )
-    {
+    Array2d<int> R { 2, 2 };        // array that contains the result matrix
+    // {
+    //     { 1, 0 },
+    //     { 0, 1 }
+    // };
+    R[0][0] = 1;
+    R[1][1] = 1;
+
+    --count;
+    while ( count )         // exponentiate M to count, but in log(count) time
+    {                       // using exponentiation by squaring algorithm
         if ( count & 1 )
-            mat_mult_accumulate( result, M );
+            R *= M;
 
         count >>= 1;
-
-        mat_mult_accumulate( M, M );
+        M *= M;
     }
 
-    return M[0][0];
+    // first element is required fibonacci number
+    return R[0][0];
 }
 
+/* Calculate recursively fibonacci series, with memoization
+ * F(2k) = F(k)^2 + 2*F(k)*F(k-1), even doubling
+ * F(2k+1) = F(k)^2 + F(k+1)^2, odd doubling
+ */
 int fibonacci_fd( int count )
 {
-    return 0;
+    // stores the calculated values of the fibonacci series
+    static std::vector<int> series { 0, 1 };
+
+    // if value has not been calculated previously, add it
+    if ( count >= series.size() )
+    {
+        int k = count >> 1;
+        series.push_back(
+            // doubling formula obtained from fibonacci series
+            fibonacci_fd( k ) * fibonacci_fd( k ) +
+            (count & 1
+                ? fibonacci_fd( k + 1 ) * fibonacci_fd( k + 1 )
+                : fibonacci_fd( k ) * fibonacci_fd( k - 1 ) << 1)
+        );
+    }
+
+    return series[count];
 }
