@@ -3,7 +3,7 @@
 #include "structs.h"
 
 #include <cstdint>          // std::int_fast16_t, std::int_fast32_t, std::int_fast64_t
-#include <cstdlib>          // std::srand, std::rand
+#include <cstdlib>          // std::abs, std::srand, std::rand
 #include <ctime>            // std::time
 #include <iostream>         // std::cin, std::cout, std::cerr
 #include <stdexcept>        // std::invalid_argument, std::out_of_range
@@ -225,11 +225,16 @@ IntRange<_Integer>::Iterator::Iterator( const _Integer value, const _Integer ste
   __step { step }
 {}
 
-// Compares the value of the iterator with the direct value of `__end` variable
+/* A hack taking advantage of the internal mechanism of for-each loops.
+ * Checking equality `__value` and `other` to terminate the iteration will break down in case of "end" value
+ * being a distance of non-exact multiple of step away from "begin" value, for instance `IntRange{10, 200, 30}`.
+ * Hence, to account for this, we check if we have already crossed the "end" value, and terminate the iteration.
+ * This is done using the direction of `__step` and current `__value` relative to "end" value.
+ */
 template<typename _Integer>
 bool IntRange<_Integer>::Iterator::operator!=( const _Integer other )
 {
-  return this->__value != other;
+  return (other - __value) * __step > 0;
 }
 
 // Indirection should yield the value contained, not the address of wrapper
@@ -250,15 +255,14 @@ template<typename _Integer>
 IntRange<_Integer>::IntRange( const _Integer begin, const _Integer end, const _Integer step ) :
   __begin { begin },
   __end { end },
-  __step { (__begin < __end) ? step : -step }
+  // correctly initializes step value irrespective of sign mismatch by the user
+  __step { (__begin < __end) ? std::abs( step ) : -std::abs( step ) }
 {}
 
 template<typename _Integer>
 IntRange<_Integer>::IntRange( const _Integer end ) :
-  __begin { 0 },
-  __end { end },
-  __step { (__end > 0) ? 1 : -1 }
-{}
+  IntRange { 0, end, 1 }    // calling the overloaded constructor with all parameters
+{ }
 
 // `typename` keyword is necessary for compiler because the name of the return type is dependent on the template
 template<typename _Integer>
@@ -276,7 +280,7 @@ template class IntRange<std::int_fast64_t>;
 void testIntRange()
 {
   int count { 0 };
-  for ( const auto num : IntRange<int> { 2'000, 5 } )
+  for ( const auto num : IntRange<int> { 2'000, 30, -100 } )
   {
     std::cout << num << '\t';
     if ( ++count % 10 == 0 ) std::cout << '\n';
