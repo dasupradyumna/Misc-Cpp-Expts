@@ -2,6 +2,7 @@
 
 #include "structs.h"
 
+#include <algorithm>        // std::swap
 #include <cstdint>          // std::int_fast16_t, std::int_fast32_t, std::int_fast64_t
 #include <cstdlib>          // std::abs, std::srand, std::rand
 #include <ctime>            // std::time
@@ -12,12 +13,14 @@
 
 ////////// Array2d::Row //////////
 
+// Basic constructor.
 template<typename _NumericType>
 Array2d<_NumericType>::Row::Row( const Array2d* link ) :
   __row { nullptr },
   __link { link }
 {}
 
+// Returns value by indexing the input column in current Row object.
 template<typename _NumericType>
 _NumericType& Array2d<_NumericType>::Row::operator[]( const size_t col ) const
 {
@@ -29,42 +32,57 @@ _NumericType& Array2d<_NumericType>::Row::operator[]( const size_t col ) const
 
 ////////// Array2d //////////
 
+// Basic constructor.
 template<typename _NumericType>
 Array2d<_NumericType>::Array2d( const size_t rows, const size_t cols ) :
   __rows { rows },
   __cols { cols },
   __data { new _NumericType[rows * cols] { 0 } },
-  __ref { new Row { this } }
+  __ptrRow { new Row { this } }
 {}
 
 /* Custom copy constructor, called whenever object is passed by value.
  * Default copy constructor would copy the pointers directly.
  * So when the copy goes out of scope, its destructor will (wrongly) delete the pointers allocated by original object.
  * Later, when the original goes out of scope, its destructor will try to delete the dangling pointer and crash.
- * This constructor creates a deep copy to prevent the above issue.
- * Slow operation - O(rows*cols)
+ * This constructor creates a deep copy to prevent the above issue, i.e copy has distinct pointers.
+ * Time complexity ~ O(n^2) or O(rows*cols).
  */
 template<typename _NumericType>
 Array2d<_NumericType>::Array2d( const Array2d& copy ) :
-  __rows { copy.__rows },
-  __cols { copy.__cols },
-  __data { new _NumericType[__rows * __cols] { 0 } },     // would be `__data { copy.__data }` in default copy constructor
-  __ref { new Row { this } }                          // would be `__row { copy.__row}` in default copy constructor
+  Array2d { copy.__rows, copy.__cols }
 {
   for ( size_t i { 0ULL }; i < __rows * __cols; ++i )
-    __data[i] = copy.__data[i];                       // copying only the data from original's pointer to copy's distinct pointer
+    __data[i] = copy.__data[i];           // copying only the data pointed by original's pointer to copy's distinct pointer
 }
 
+/* Custom move constructor, called whenever an Array2d R-value is used to initiate an Array2d object.
+ * Its purpose is the same as the copy constructor, but it is faster than a copy constructor initialized by an
+ * Array2d R-value because it directly takes ownership of all assets of Array2d parameter, leaving it in an
+ * effectively "useless state". Whereas, copy constructor does not affect data owned by the Array2d parameter and
+ * copies all the data to the current object.
+ * Time complexity ~ O(1).
+ */
+template<typename _NumericType>
+Array2d<_NumericType>::Array2d( Array2d&& temp ) :
+  Array2d { temp.__rows, temp.__cols }
+{
+  std::swap( __data, temp.__data );       // swapping pointers since temp is a temporary object, destroyed at function end
+}
+
+// Basic destructor.
 template<typename _NumericType>
 Array2d<_NumericType>::~Array2d()
 {
   delete[] __data;
-  delete __ref;
+  delete __ptrRow;
 }
 
+// Returns the value of rows attribute.
 template<typename _NumericType>
 const size_t Array2d<_NumericType>::rows() const { return __rows; }
 
+// Returns the value of columns attribute.
 template<typename _NumericType>
 const size_t Array2d<_NumericType>::cols() const { return __cols; }
 
@@ -76,7 +94,7 @@ const size_t Array2d<_NumericType>::cols() const { return __cols; }
 template<typename _NumericType>
 _NumericType* Array2d<_NumericType>::begin() const { return __data; }
 
-// Returns a const iterator to the end of the array, since it is used only for bound-checking
+// Returns a const iterator to the end of the array, since it is used only for bound-checking.
 template<typename _NumericType>
 const _NumericType* const Array2d<_NumericType>::end() const { return __data + __rows * __cols; }
 
@@ -88,36 +106,102 @@ template<typename _NumericType>
 typename Array2d<_NumericType>::Row& Array2d<_NumericType>::operator[]( const size_t row ) const
 {
   if ( row < __rows )
-    __ref->__row = &__data[row * __cols];
+    __ptrRow->__row = &__data[row * __cols];
   else
     throw std::out_of_range { "error: row index out of bounds.\n" };
 
-  return *__ref;
+  return *__ptrRow;
 }
 
-/* Overload of assignment operator for Array2d.
+/* Copy assignment operator for Array2d.
  * Rows and columns of LHS and RHS are expected to be equal before assignment.
- * All the data pointed by RHS pointer is copied to LHS pointer, takes O(rows*cols) time.
+ * All the data pointed by RHS pointer is copied to LHS pointer.
  * Pointers themselves are not copied to avoid multiple references to same data.
+ * Time complexity ~ O(n^2) or O(rows*cols).
  */
 template<typename _NumericType>
-void Array2d<_NumericType>::operator=( const Array2d<_NumericType> other )
+void Array2d<_NumericType>::operator=( const Array2d& other )
 {
   if ( this->__rows != other.__rows || this->__cols != other.__cols )
     throw std::invalid_argument { "error: source and target matrix dimensions do not match.\n" };
 
-  // deep copying the data from RHS to LHS
   for ( size_t i { 0ULL }; i < __rows * __cols; ++i )
     __data[i] = other.__data[i];
 }
 
-/* Overload for multiplication of two Array2d objects.
- * Checks the matrix multiplication dimensions prerequisite.
- * Naive matrix multiplication algorithm - O(rows1*cols1*cols2) ~ O(n^3)
- * Returns the resultant Array2d object.
+/* Move assignment operator for Array2d.
+ * Rows and columns of LHS and RHS are expected to be equal before assignment.
+ * Pointers are swapped with the temporary object, since it is destroyed at end of this function.
+ * Time complexity ~ O(1).
  */
 template<typename _NumericType>
-Array2d<_NumericType> Array2d<_NumericType>::operator*( const Array2d<_NumericType> other ) const
+void Array2d<_NumericType>::operator=( Array2d&& temp )
+{
+  if ( this->__rows != temp.__rows || this->__cols != temp.__cols )
+    throw std::invalid_argument { "error: source and target matrix dimensions do not match.\n" };
+
+  std::swap( __data, temp.__data );
+}
+
+/* Overload for adding 2 matrices of same dimensions.
+ * Rows and columns of LHS and RHS are expected to be equal before addition.
+ * Time complexity ~ O(n^2) or O(rows*cols).
+ */
+template<typename _NumericType>
+Array2d<_NumericType> Array2d<_NumericType>::operator+( const Array2d& other ) const
+{
+  if ( this->__rows != other.__rows || this->__cols != other.__cols )
+    throw std::invalid_argument { "error: dimensions of addend matrices do not match.\n" };
+
+  Array2d<_NumericType> result { this->__rows, other.__cols };
+  for ( size_t i { 0ULL }; i < __rows * __cols; ++i )
+    result.__data[i] = this->__data[i] + other.__data[i];
+
+  return result;
+}
+
+/* Overload for shorthand addition, straightforward implementation using addition overload.
+ * Time complexity is same as addition ~ O(n^2) or O(rows*cols).
+ */
+template<typename _NumericType>
+void Array2d<_NumericType>::operator+=( const Array2d& other ) { *this = *this + other; }
+
+/* Overload for inverting the sign of all elements of a matrix.
+ * Time complexity is same as multiplication with a scalar ~ O(n^2) or O(rows*cols).
+ */
+template<typename _NumericType>
+Array2d<_NumericType> Array2d<_NumericType>::operator-() const { return *this * -1; }
+
+/* Overload for subtraction between 2 matrices of same dimensions.
+ * Rows and columns of LHS and RHS are expected to be equal before subtraction.
+ * Time complexity ~ O(n^2) or O(rows*cols).
+ */
+template<typename _NumericType>
+Array2d<_NumericType> Array2d<_NumericType>::operator-( const Array2d& other ) const
+{
+  if ( this->__rows != other.__rows || this->__cols != other.__cols )
+    throw std::invalid_argument { "error: minuend and subtrahend matrix dimensions do not match.\n" };
+
+  Array2d<_NumericType> result { this->__rows, other.__cols };
+  for ( size_t i { 0ULL }; i < __rows * __cols; ++i )
+    result.__data[i] = this->__data[i] - other.__data[i];
+
+  return result;
+}
+
+/* Overload for shorthand subtraction, straightforward implementation using subtraction overload.
+ * Time complexity is same as subtraction ~ O(n^2) or O(rows*cols).
+ */
+template<typename _NumericType>
+void Array2d<_NumericType>::operator-=( const Array2d& other ) { *this = *this - other; }
+
+/* Overload for multiplication of two Array2d objects.
+ * Checks the matrix multiplication dimensions prerequisite.
+ * Returns the resultant Array2d object.
+ * Naive algorithm, time complexity ~ O(n^3) ~ O(rows1*cols1*cols2).
+ */
+template<typename _NumericType>
+Array2d<_NumericType> Array2d<_NumericType>::operator*( const Array2d& other ) const
 {
   if ( this->__cols != other.__rows )
     throw std::invalid_argument { "error: the matrices cannot be multipled "
@@ -132,20 +216,28 @@ Array2d<_NumericType> Array2d<_NumericType>::operator*( const Array2d<_NumericTy
   return result;
 }
 
-/* Overload for shorthand multiplication, straightforward implementation
- * Time complexity is same as multiplication ~ O(n^3)
+/* Overload for multiplying every element of matrix with a scalar value.
+ * Time complexity ~ O(n^2) or O(rows*cols).
  */
 template<typename _NumericType>
-void Array2d<_NumericType>::operator*=( const Array2d<_NumericType> other )
+Array2d<_NumericType> Array2d<_NumericType>::operator*( const _NumericType value ) const
 {
-  if ( this->__cols != other.__rows )
-    throw std::invalid_argument { "error: the matrices cannot be multipled "
-    "since the dimensions do not match as required.\n" };
+  Array2d<_NumericType> result { __rows, __cols };
+  for ( size_t i { 0ULL }; i < __rows * __cols; ++i )
+    result.__data[i] = this->__data[i] * value;
 
-  *this = *this * other;
+  return result;
 }
 
-// Prints the contents of the array in its given shape
+/* Overload for shorthand multiplication, straightforward implementation using multiplication overload.
+ * Time complexity is same as multiplication ~ O(n^3) ~ O(rows1*cols1*cols2).
+ */
+template<typename _NumericType>
+void Array2d<_NumericType>::operator*=( const Array2d& other ) { *this = *this * other; }
+
+/* Prints the contents of the array in its given shape.
+ * Time complexity ~ O(n^2) or O(rows*cols).
+ */
 template<typename _NumericType>
 void Array2d<_NumericType>::view() const
 {
@@ -170,12 +262,12 @@ template class Array2d<double>;
 template class Array2d<long double>;
 
 
-// Simple test function for `Array2d` demo
+// Simple test function for `Array2d` demo.
 void testArray2d()
 {
   std::srand( static_cast<unsigned int>(std::time( nullptr )) );
 
-  const Array2d<double> A { 3, 2 };
+  // const Array2d<double> A { 3, 2 };
 
   // while ( true )                              // testing traditional [][] indexing with bounds check
   // {
@@ -194,23 +286,31 @@ void testArray2d()
   //     }
   // }
 
-  // testing rows(), cols() and view() methods
-  std::cout << "Shape of A : " << A.rows() << ' ' << A.cols() << "\n\n";
-  A.view();
-
-  Array2d<int> x { 2, 2 };
-  Array2d<int> y { 2, 2 };
+  Array2d<int> x { 3, 3 };
+  Array2d<int> y { 3, 3 };
 
   for ( auto& el : x )
-    el = std::rand() % 10 - 5;
+    el = std::rand() % 15 - 7;
   for ( auto& el : y )
-    el = std::rand() % 10 - 5;
+    el = std::rand() % 15 - 7;
 
+  // testing view() method
   x.view();
   y.view();
 
-  Array2d<int> z { x * y };       // testing multiplication overload
-  z *= x;                         // testing shorthand overload
+  Array2d<int> z { x + y };           // testing addition overload
+  z.view();
+  z = x - y;                          // testing subtraction overload
+  z.view();
+  z = x * y;                          // testing multiplication overload
+  z.view();
+  z = Array2d<int> { 3, 3 };          // move constructor
+  z.view();
+  z += x;                             // testing shorthand addition
+  z.view();
+  z -= y;                             // testing shorthand subtraction
+  z.view();
+  z *= z;                             // testing shorthand multiplication
   z.view();
 }
 

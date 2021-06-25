@@ -21,12 +21,14 @@ class Array2d
     /* This class is created for the sole purpose of bounds checking while indexing columns
      * for each row. If the bounds check for columns is not necessary, this class can be removed
      * and appropriate changes to `Array2d` attributes and method return types should work fine.
+     * This class cannot be accessed outside Array2d (except by friends) since it is private.
      */
-    const Array2d* const __link;                          // nested class can access `Array2d` private attributes (since C++11)
+    const Array2d* const __link;                          // nested class can access parent's private attributes (since C++11)
 
   public:
 
     // mutable attribute for subscripting const Array2d objects
+    // public attribute for access in Array2d methods
     mutable _NumericType* __row;                          // pointer to first element of current row
 
     Row( const Array2d* link );                           // initializes `__row` to nullptr, links to an `Array2d` instance
@@ -36,7 +38,7 @@ class Array2d
   const size_t __rows;                                    // number of rows in the 2d array
   const size_t __cols;                                    // number of columns in the 2d array
   _NumericType* __data;                                   // the actual data stored in the 2d array
-  Row* __ref;                                             // pointer to `Row` object for indexing columns
+  Row* __ptrRow;                                             // pointer to `Row` object for indexing columns
 
 public:
 
@@ -44,15 +46,25 @@ public:
   // constructors always zero-initialize the data array
   Array2d( const size_t rows, const size_t cols );        // initializes `rows` and `cols`, allocates memory for `data`
   Array2d( const Array2d& copy );                         // custom copy constructor to make sure pointers are not copied directly
+  Array2d( Array2d&& temp );                              // custom move constructor to make sure pointers are not copied directly
   ~Array2d();                                             // deallocates memory held by `data`
   const size_t rows() const;                              // returns the number of rows in the 2d array
   const size_t cols() const;                              // returns the number of columns in the 2d array
   _NumericType* begin() const;                            // returns iterator to the start of the array
   const _NumericType* const end() const;                  // returns iterator to one position after the end of the array
+
   Row& operator[]( const size_t row ) const;              // bounds check and returns reference to desired row
-  void operator=( const Array2d other );                  // deep copies the contents of `other`
-  Array2d operator*( const Array2d other ) const;         // multiply 2 matrices, if their dimensions are valid
-  void operator*=( const Array2d other );                 // overloading shorthand operator
+  void operator=( const Array2d& other );                 // custom copy assignment operator
+  void operator=( Array2d&& temp );                       // custom move assignment operator
+  Array2d operator+( const Array2d& other ) const;        // add 2 matrices, if their dimensions are valid
+  void operator+=( const Array2d& other );                // overloading shorthand operator (addition)
+  Array2d operator-() const;                              // flip the signs of all elements of matrix
+  Array2d operator-( const Array2d& other ) const;        // subtract 2 matrices, if their dimensions are valid
+  void operator-=( const Array2d& other );                // overloading shorthand operator (subtraction)
+  Array2d operator*( const Array2d& other ) const;        // multiply 2 matrices, if their dimensions are valid
+  Array2d operator*( const _NumericType value ) const;    // multiply scalar to every element of the matrix
+  void operator*=( const Array2d& other );                // overloading shorthand operator (multiplication)
+
   void view() const;                                      // prints the contents of the array
 };
 
