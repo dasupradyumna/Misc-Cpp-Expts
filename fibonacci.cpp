@@ -50,10 +50,10 @@ int fibonacci_mat( int count )
   // return count itself for 0, 1
   if ( count < 2 ) return count;
 
-  //  TODO  change this code after Array2d gets initializer list support
+  //  TODO  change this code after `Matrix` gets initializer list support
 
   // array that contains the fibonacci matrix to be exponentiated
-  Array2d<int> M { 2, 2 };
+  Matrix<int> M { 2, 2 };
   // {
   //     { 1, 1 },
   //     { 1, 0 }
@@ -62,7 +62,7 @@ int fibonacci_mat( int count )
   M[0][1] = 1;
   M[1][0] = 1;
 
-  Array2d<int> R { 2, 2 };        // array that contains the result matrix
+  Matrix<int> R { 2, 2 };        // array that contains the result matrix
   // {
   //     { 1, 0 },
   //     { 0, 1 }

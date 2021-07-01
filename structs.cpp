@@ -7,22 +7,22 @@
 #include <cstdlib>          // std::abs, std::srand, std::rand
 #include <ctime>            // std::time
 #include <iostream>         // std::cin, std::cout, std::cerr
-#include <stdexcept>        // std::invalid_argument, std::out_of_range
+#include <stdexcept>        // std::invalid_argument, std::out_of_range, std::runtime_error
 
 //////////////////////////////////// 2D Flat Rectangular Array //////////////////////////////////////
 
-////////// Array2d::Row //////////
+////////// Matrix::Row //////////
 
 // Basic constructor.
 template<typename _NumericType>
-Array2d<_NumericType>::Row::Row( const Array2d* link ) :
+Matrix<_NumericType>::Row::Row( const Matrix* link ) :
   __row { nullptr },
   __link { link }
 {}
 
 // Returns value by indexing the input column in current Row object.
 template<typename _NumericType>
-_NumericType& Array2d<_NumericType>::Row::operator[]( const size_t col ) const
+_NumericType& Matrix<_NumericType>::Row::operator[]( const size_t col ) const
 {
   if ( col >= __link->__cols )
     throw std::out_of_range { "error: column index out of bounds.\n" };
@@ -30,16 +30,18 @@ _NumericType& Array2d<_NumericType>::Row::operator[]( const size_t col ) const
   return __row[col];
 }
 
-////////// Array2d //////////
+////////// Matrix //////////
 
 // Basic constructor.
 template<typename _NumericType>
-Array2d<_NumericType>::Array2d( const size_t rows, const size_t cols ) :
+Matrix<_NumericType>::Matrix( const size_t rows, const size_t cols ) :
   __rows { rows },
   __cols { cols },
-  __data { new _NumericType[rows * cols] { 0 } },
+  __data { (rows * cols) ? new _NumericType[rows * cols] { 0 } : nullptr },
   __ptrRow { new Row { this } }
-{}
+{
+  if ( !__data ) throw std::runtime_error { "error: matrix has either 0 rows or 0 columns or both.\n" };
+}
 
 /* Custom copy constructor, called whenever object is passed by value.
  * Default copy constructor would copy the pointers directly.
@@ -49,30 +51,30 @@ Array2d<_NumericType>::Array2d( const size_t rows, const size_t cols ) :
  * Time complexity ~ O(n^2) or O(rows*cols).
  */
 template<typename _NumericType>
-Array2d<_NumericType>::Array2d( const Array2d& copy ) :
-  Array2d { copy.__rows, copy.__cols }
+Matrix<_NumericType>::Matrix( const Matrix& copy ) :
+  Matrix { copy.__rows, copy.__cols }
 {
-  for ( size_t i { 0ULL }; i < __rows * __cols; ++i )
-    __data[i] = copy.__data[i];           // copying only the data pointed by original's pointer to copy's distinct pointer
+  // copying only the data pointed by original's pointer to copy's distinct pointer
+  std::copy( copy.begin(), copy.end(), this->begin() );
 }
 
-/* Custom move constructor, called whenever an Array2d R-value is used to initiate an Array2d object.
+/* Custom move constructor, called whenever an Matrix R-value is used to initiate an Matrix object.
  * Its purpose is the same as the copy constructor, but it is faster than a copy constructor initialized by an
- * Array2d R-value because it directly takes ownership of all assets of Array2d parameter, leaving it in an
- * effectively "useless state". Whereas, copy constructor does not affect data owned by the Array2d parameter and
+ * Matrix R-value because it directly takes ownership of all assets of Matrix parameter, leaving it in an
+ * effectively "useless state". Whereas, copy constructor does not affect data owned by the Matrix parameter and
  * copies all the data to the current object.
  * Time complexity ~ O(1).
  */
 template<typename _NumericType>
-Array2d<_NumericType>::Array2d( Array2d&& temp ) :
-  Array2d { temp.__rows, temp.__cols }
+Matrix<_NumericType>::Matrix( Matrix&& temp ) :
+  Matrix { temp.__rows, temp.__cols }
 {
   std::swap( __data, temp.__data );       // swapping pointers since temp is a temporary object, destroyed at function end
 }
 
 // Basic destructor.
 template<typename _NumericType>
-Array2d<_NumericType>::~Array2d()
+Matrix<_NumericType>::~Matrix()
 {
   delete[] __data;
   delete __ptrRow;
@@ -80,30 +82,34 @@ Array2d<_NumericType>::~Array2d()
 
 // Returns the value of rows attribute.
 template<typename _NumericType>
-const size_t Array2d<_NumericType>::rows() const { return __rows; }
+inline
+const size_t Matrix<_NumericType>::rows() const { return __rows; }
 
 // Returns the value of columns attribute.
 template<typename _NumericType>
-const size_t Array2d<_NumericType>::cols() const { return __cols; }
+inline
+const size_t Matrix<_NumericType>::cols() const { return __cols; }
 
-/* Returns a non-const iterator so that the loop variable inside a range-based `for` loop
+/* Returns a non-const iterator to the start of the array so that the loop variable inside a range-based `for` loop
  * has the option to be modifiable or read-only, depending on the type of the iterator.
  * for (auto x : Arr) - elements of Arr are read-only.
  * for (auto& x : Arr) - elements of Arr are referenced and modified directly.
  */
 template<typename _NumericType>
-_NumericType* Array2d<_NumericType>::begin() const { return __data; }
+inline
+_NumericType* Matrix<_NumericType>::begin() const { return __data; }
 
 // Returns a const iterator to the end of the array, since it is used only for bound-checking.
 template<typename _NumericType>
-const _NumericType* const Array2d<_NumericType>::end() const { return __data + __rows * __cols; }
+inline
+_NumericType* const Matrix<_NumericType>::end() const { return __data + __rows * __cols; }
 
 /* This function is called for the first index (rows) of the array.
  * It returns a reference to a `Row` object, which calls the subscript method for the
  * second index (columns). Finally, it returns the desired value from the array.
  */
 template<typename _NumericType>
-typename Array2d<_NumericType>::Row& Array2d<_NumericType>::operator[]( const size_t row ) const
+typename Matrix<_NumericType>::Row& Matrix<_NumericType>::operator[]( const size_t row ) const
 {
   if ( row < __rows )
     __ptrRow->__row = &__data[row * __cols];
@@ -113,29 +119,28 @@ typename Array2d<_NumericType>::Row& Array2d<_NumericType>::operator[]( const si
   return *__ptrRow;
 }
 
-/* Copy assignment operator for Array2d.
+/* Copy assignment operator for Matrix.
  * Rows and columns of LHS and RHS are expected to be equal before assignment.
  * All the data pointed by RHS pointer is copied to LHS pointer.
  * Pointers themselves are not copied to avoid multiple references to same data.
  * Time complexity ~ O(n^2) or O(rows*cols).
  */
 template<typename _NumericType>
-void Array2d<_NumericType>::operator=( const Array2d& other )
+void Matrix<_NumericType>::operator=( const Matrix& copy )
 {
-  if ( this->__rows != other.__rows || this->__cols != other.__cols )
+  if ( this->__rows != copy.__rows || this->__cols != copy.__cols )
     throw std::invalid_argument { "error: source and target matrix dimensions do not match.\n" };
 
-  for ( size_t i { 0ULL }; i < __rows * __cols; ++i )
-    __data[i] = other.__data[i];
+  std::copy( copy.begin(), copy.end(), this->begin() );
 }
 
-/* Move assignment operator for Array2d.
+/* Move assignment operator for Matrix.
  * Rows and columns of LHS and RHS are expected to be equal before assignment.
  * Pointers are swapped with the temporary object, since it is destroyed at end of this function.
  * Time complexity ~ O(1).
  */
 template<typename _NumericType>
-void Array2d<_NumericType>::operator=( Array2d&& temp )
+void Matrix<_NumericType>::operator=( Matrix&& temp )
 {
   if ( this->__rows != temp.__rows || this->__cols != temp.__cols )
     throw std::invalid_argument { "error: source and target matrix dimensions do not match.\n" };
@@ -148,12 +153,12 @@ void Array2d<_NumericType>::operator=( Array2d&& temp )
  * Time complexity ~ O(n^2) or O(rows*cols).
  */
 template<typename _NumericType>
-Array2d<_NumericType> Array2d<_NumericType>::operator+( const Array2d& other ) const
+Matrix<_NumericType> Matrix<_NumericType>::operator+( const Matrix& other ) const
 {
   if ( this->__rows != other.__rows || this->__cols != other.__cols )
     throw std::invalid_argument { "error: dimensions of addend matrices do not match.\n" };
 
-  Array2d<_NumericType> result { this->__rows, other.__cols };
+  Matrix result { this->__rows, other.__cols };
   for ( size_t i { 0ULL }; i < __rows * __cols; ++i )
     result.__data[i] = this->__data[i] + other.__data[i];
 
@@ -164,25 +169,27 @@ Array2d<_NumericType> Array2d<_NumericType>::operator+( const Array2d& other ) c
  * Time complexity is same as addition ~ O(n^2) or O(rows*cols).
  */
 template<typename _NumericType>
-void Array2d<_NumericType>::operator+=( const Array2d& other ) { *this = *this + other; }
+inline
+void Matrix<_NumericType>::operator+=( const Matrix& other ) { *this = *this + other; }
 
 /* Overload for inverting the sign of all elements of a matrix.
  * Time complexity is same as multiplication with a scalar ~ O(n^2) or O(rows*cols).
  */
 template<typename _NumericType>
-Array2d<_NumericType> Array2d<_NumericType>::operator-() const { return *this * -1; }
+inline
+Matrix<_NumericType> Matrix<_NumericType>::operator-() const { return *this * -1; }
 
 /* Overload for subtraction between 2 matrices of same dimensions.
  * Rows and columns of LHS and RHS are expected to be equal before subtraction.
  * Time complexity ~ O(n^2) or O(rows*cols).
  */
 template<typename _NumericType>
-Array2d<_NumericType> Array2d<_NumericType>::operator-( const Array2d& other ) const
+Matrix<_NumericType> Matrix<_NumericType>::operator-( const Matrix& other ) const
 {
   if ( this->__rows != other.__rows || this->__cols != other.__cols )
     throw std::invalid_argument { "error: minuend and subtrahend matrix dimensions do not match.\n" };
 
-  Array2d<_NumericType> result { this->__rows, other.__cols };
+  Matrix result { this->__rows, other.__cols };
   for ( size_t i { 0ULL }; i < __rows * __cols; ++i )
     result.__data[i] = this->__data[i] - other.__data[i];
 
@@ -193,21 +200,21 @@ Array2d<_NumericType> Array2d<_NumericType>::operator-( const Array2d& other ) c
  * Time complexity is same as subtraction ~ O(n^2) or O(rows*cols).
  */
 template<typename _NumericType>
-void Array2d<_NumericType>::operator-=( const Array2d& other ) { *this = *this - other; }
+inline
+void Matrix<_NumericType>::operator-=( const Matrix& other ) { *this = *this - other; }
 
-/* Overload for multiplication of two Array2d objects.
+/* Overload for multiplication of two Matrix objects.
  * Checks the matrix multiplication dimensions prerequisite.
- * Returns the resultant Array2d object.
+ * Returns the resultant Matrix object.
  * Naive algorithm, time complexity ~ O(n^3) ~ O(rows1*cols1*cols2).
  */
 template<typename _NumericType>
-Array2d<_NumericType> Array2d<_NumericType>::operator*( const Array2d& other ) const
+Matrix<_NumericType> Matrix<_NumericType>::operator*( const Matrix& other ) const
 {
   if ( this->__cols != other.__rows )
-    throw std::invalid_argument { "error: the matrices cannot be multipled "
-    "since no. of columns of first matrix and no. of rows of second matrix are not equal.\n" };
+    throw std::invalid_argument { "error: dimensions of multiplicand matrices are incompatible for multiplication.\n" };
 
-  Array2d<_NumericType> result { this->__rows, other.__cols };
+  Matrix result { this->__rows, other.__cols };
   for ( size_t m { 0ULL }; m < result.__rows; ++m )
     for ( size_t n { 0ULL }; n < result.__cols; ++n )
       for ( size_t p { 0ULL }; p < this->__cols; ++p )
@@ -220,9 +227,9 @@ Array2d<_NumericType> Array2d<_NumericType>::operator*( const Array2d& other ) c
  * Time complexity ~ O(n^2) or O(rows*cols).
  */
 template<typename _NumericType>
-Array2d<_NumericType> Array2d<_NumericType>::operator*( const _NumericType value ) const
+Matrix<_NumericType> Matrix<_NumericType>::operator*( const _NumericType value ) const
 {
-  Array2d<_NumericType> result { __rows, __cols };
+  Matrix result { __rows, __cols };
   for ( size_t i { 0ULL }; i < __rows * __cols; ++i )
     result.__data[i] = this->__data[i] * value;
 
@@ -233,13 +240,14 @@ Array2d<_NumericType> Array2d<_NumericType>::operator*( const _NumericType value
  * Time complexity is same as multiplication ~ O(n^3) ~ O(rows1*cols1*cols2).
  */
 template<typename _NumericType>
-void Array2d<_NumericType>::operator*=( const Array2d& other ) { *this = *this * other; }
+inline
+void Matrix<_NumericType>::operator*=( const Matrix& other ) { *this = *this * other; }
 
 /* Prints the contents of the array in its given shape.
  * Time complexity ~ O(n^2) or O(rows*cols).
  */
 template<typename _NumericType>
-void Array2d<_NumericType>::view() const
+void Matrix<_NumericType>::view() const
 {
   for ( size_t row { 0ULL }; row < __rows; ++row )
   {
@@ -250,24 +258,32 @@ void Array2d<_NumericType>::view() const
   std::cout << '\n';
 }
 
-/* Instantiating template classes for the datatypes that can be used with the `Array2d` class.
+/* Overload to make scalar matrix multiplication commutative.
+ * Implemented using the Matrix class overload.
+ * Time complexity ~ O(n^2) or O(rows*cols).
+ */
+template<typename _NumericType>
+inline
+Matrix<_NumericType> operator*( const _NumericType value, const Matrix<_NumericType>& mat ) { return mat * value; }
+
+/* Instantiating template classes for the datatypes that can be used with the `Matrix` class.
  * Not doing this will throw a linker error since it can not find the type-specific implementation
  * of the methods it sees in template class anywhere. By compiling the below type-instances, the linker
  * will be able to find the desired variation of template.
  */
-template class Array2d<std::int_fast32_t>;
-template class Array2d<std::int_fast64_t>;
-template class Array2d<float>;
-template class Array2d<double>;
-template class Array2d<long double>;
+template class Matrix<std::int_fast32_t>;
+template class Matrix<std::int_fast64_t>;
+template class Matrix<float>;
+template class Matrix<double>;
+template class Matrix<long double>;
 
 
-// Simple test function for `Array2d` demo.
+// Simple test function for `Matrix` demo.
 void testArray2d()
 {
   std::srand( static_cast<unsigned int>(std::time( nullptr )) );
 
-  // const Array2d<double> A { 3, 2 };
+  // const Matrix<double> A { 3, 2 };
 
   // while ( true )                              // testing traditional [][] indexing with bounds check
   // {
@@ -286,8 +302,8 @@ void testArray2d()
   //     }
   // }
 
-  Array2d<int> x { 3, 3 };
-  Array2d<int> y { 3, 3 };
+  Matrix<int> x { 3, 3 };
+  Matrix<int> y { 3, 3 };
 
   for ( auto& el : x )
     el = std::rand() % 15 - 7;
@@ -298,19 +314,21 @@ void testArray2d()
   x.view();
   y.view();
 
-  Array2d<int> z { x + y };           // testing addition overload
+  Matrix<int> z { x + y };             // testing addition overload
   z.view();
-  z = x - y;                          // testing subtraction overload
+  z = x - y;                           // testing subtraction overload
   z.view();
-  z = x * y;                          // testing multiplication overload
+  z = x * y;                           // testing multiplication overload
   z.view();
-  z = Array2d<int> { 3, 3 };          // move constructor
+  z = Matrix<int> { 3, 3 };            // move constructor
   z.view();
-  z += x;                             // testing shorthand addition
+  z += x;                              // testing shorthand addition
   z.view();
-  z -= y;                             // testing shorthand subtraction
+  z -= y;                              // testing shorthand subtraction
   z.view();
-  z *= z;                             // testing shorthand multiplication
+  z *= z;                              // testing shorthand multiplication
+  z.view();
+  z = 2 * z;                           // testing scalar multiplication (commutative)
   z.view();
 }
 
