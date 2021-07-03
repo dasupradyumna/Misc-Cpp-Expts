@@ -1,4 +1,5 @@
 #include "structs.h"
+#include "customcast.h"
 
 #include <algorithm>
 #include <cstdlib>          // EXIT_SUCCESS
@@ -18,6 +19,7 @@ int main()
   // int& x();
   // std::cout << x;
 
-  testArray2d();
+  // testArray2d();
+  testCustomCast();
   return EXIT_SUCCESS;
 }
