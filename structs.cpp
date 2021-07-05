@@ -2,12 +2,12 @@
 
 #include "structs.h"
 
-#include <algorithm>        // std::swap
+#include <algorithm>        // std::copy, std::swap
 #include <cstdint>          // std::int_fast16_t, std::int_fast32_t, std::int_fast64_t
 #include <cstdlib>          // std::abs, std::srand, std::rand
 #include <ctime>            // std::time
 #include <iostream>         // std::cin, std::cout, std::cerr
-#include <stdexcept>        // std::invalid_argument, std::out_of_range, std::runtime_error
+#include <stdexcept>        // std::invalid_argument, std::out_of_range
 
 //////////////////////////////////// 2D Flat Rectangular Array //////////////////////////////////////
 
@@ -40,7 +40,34 @@ Matrix<_NumericType>::Matrix( const size_t rows, const size_t cols ) :
   __data { (rows * cols) ? new _NumericType[rows * cols] { 0 } : nullptr },
   __ptrRow { new Row { this } }
 {
-  if ( !__data ) throw std::runtime_error { "error: matrix has either 0 rows or 0 columns or both.\n" };
+  if ( !__data ) throw std::invalid_argument { "error: matrix has either 0 rows or 0 columns or both.\n" };
+}
+
+/* This constructor accepts the dimensions of the matrix and an initializer list to fill in.
+ * It checks if the initializer list shape exceeds that of the matrix to throw an error.
+ * In case of list being smaller than the matrix, the remaining values are left zero-initialized.
+ */
+template<typename _NumericType>
+Matrix<_NumericType>::Matrix( const size_t rows, const size_t cols, InitializerList2D list ) :
+  Matrix { rows, cols }
+{
+  size_t list_row { 0ULL };
+  for ( auto innerlist : list )
+  {
+    if ( list_row >= rows )
+      throw std::invalid_argument { "error: too many row values to unpack into Matrix.\n" };
+
+    size_t list_col { 0ULL };
+    for ( _NumericType value : innerlist )
+    {
+      if ( list_col >= cols )
+        throw std::invalid_argument { "error: too many column values to unpack into Matrix.\n" };
+
+      __data[list_row * __cols + list_col] = value;
+      ++list_col;
+    }
+    ++list_row;
+  }
 }
 
 /* Custom copy constructor, called whenever object is passed by value.
@@ -266,10 +293,22 @@ template<typename _NumericType>
 inline
 Matrix<_NumericType> operator*( const _NumericType value, const Matrix<_NumericType>& mat ) { return mat * value; }
 
-/* Instantiating template classes for the datatypes that can be used with the `Matrix` class.
- * Not doing this will throw a linker error since it can not find the type-specific implementation
- * of the methods it sees in template class anywhere. By compiling the below type-instances, the linker
- * will be able to find the desired variation of template.
+
+/* << IMPORTANT >>
+ * "Explicit instantiation" : The template class implementation is stored in a source file, seperately from
+ * definitions in the header. This means that only the pre-specified explicit instances of the template can be used, and
+ * for every new (user-defined) datatype, we have to manually add an instance before using it.
+ * Not doing this will throw a linker error since it can not find the type-specific implementation of the methods it sees
+ * in template class. By compiling the explicit instances, the linker will be able to find the desired variation of template.
+ *
+ * "Header inclusion" : Both the definition and implementation of the class template is stored in the header file.
+ * This means that every file that includes the header has full knowledge of how the class functions and therefore knows
+ * how to create a template instance for a generic type (including user-defined types).
+ * But this also slows down compilation process for significantly large projects because every file including the class
+ * template header creates its own required template instances which the linker has to sort through to prevent ODR violation,
+ * unlike explicit instantiation which is much faster with pre-defined instances.
+ *
+ * Below is explicit instantiation method.
  */
 template class Matrix<std::int_fast32_t>;
 template class Matrix<std::int_fast64_t>;
@@ -283,53 +322,57 @@ void testArray2d()
 {
   std::srand( static_cast<unsigned int>(std::time( nullptr )) );
 
-  // const Matrix<double> A { 3, 2 };
+  const Matrix<double> A { 3, 3, {
+    { 1, 0, 1 },
+    { 0, 1, 0 },
+    { 1, 0, 1 }
+  } };
 
-  // while ( true )                              // testing traditional [][] indexing with bounds check
+  A.view();                               // testing view() method
+
+  // while ( true )                          // testing traditional [][] indexing with bounds check
   // {
-  //     int r { };
-  //     size_t c { };
-  //     std::cout << "Enter row and column indices (negative input to quit) : ";
-  //     std::cin >> r >> c;
-  //     if ( r < 0 ) break;
-  //     try
-  //     {
-  //         std::cout << A[static_cast<size_t>(r)][c] << '\n';
-  //     }
-  //     catch ( std::out_of_range& exception )
-  //     {
-  //         std::cerr << exception.what();
-  //     }
+  //   int r { };
+  //   size_t c { };
+  //   std::cout << "Enter row and column indices (negative input to quit) : ";
+  //   std::cin >> r;
+  //   if ( r < 0 ) break;
+  //   std::cin >> c;
+  //   try
+  //   {
+  //     std::cout << A[static_cast<size_t>(r)][c] << '\n';
+  //   }
+  //   catch ( std::out_of_range& exception )
+  //   {
+  //     std::cerr << exception.what();
+  //   }
   // }
 
-  Matrix<int> x { 3, 3 };
-  Matrix<int> y { 3, 3 };
+  Matrix<double> B { 3, 3 };
+  for ( auto& el : B )
+    el = (std::rand() % 101) / 100.0;
+  B.view();
 
-  for ( auto& el : x )
-    el = std::rand() % 15 - 7;
-  for ( auto& el : y )
-    el = std::rand() % 15 - 7;
-
-  // testing view() method
-  x.view();
-  y.view();
-
-  Matrix<int> z { x + y };             // testing addition overload
-  z.view();
-  z = x - y;                           // testing subtraction overload
-  z.view();
-  z = x * y;                           // testing multiplication overload
-  z.view();
-  z = Matrix<int> { 3, 3 };            // move constructor
-  z.view();
-  z += x;                              // testing shorthand addition
-  z.view();
-  z -= y;                              // testing shorthand subtraction
-  z.view();
-  z *= z;                              // testing shorthand multiplication
-  z.view();
-  z = 2 * z;                           // testing scalar multiplication (commutative)
-  z.view();
+  Matrix<double> C { A + B };             // testing addition overload
+  C.view();
+  C = A - B;                              // testing subtraction overload
+  C.view();
+  C = A * B;                              // testing multiplication overload
+  C.view();
+  C = Matrix<double> { 3, 3 };            // move constructor
+  C.view();
+  C += A;                                 // testing shorthand addition
+  C.view();
+  C -= B;                                 // testing shorthand subtraction
+  C.view();
+  C *= Matrix<double> { 3, 3, {           // testing shorthand multiplication
+    { 0.5, 0, 0 },
+    { 0, 0.5, 0 },
+    { 0, 0, 0.5 }
+  } };
+  C.view();
+  C = 2.0 * C;                            // testing scalar multiplication (commutative)
+  C.view();
 }
 
 

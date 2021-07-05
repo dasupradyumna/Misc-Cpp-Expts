@@ -1,5 +1,6 @@
-#include "structs.h"
-#include "customcast.h"
+// #include "structs.h"
+// #include "customcast.h"
+#include "fibonacci.h"
 
 #include <algorithm>
 #include <cstdlib>          // EXIT_SUCCESS
@@ -19,7 +20,8 @@ int main()
   // int& x();
   // std::cout << x;
 
+  testFibonacci( fibonacci_mat, 11 );
   // testArray2d();
-  testCustomCast();
+  // testCustomCast();
   return EXIT_SUCCESS;
 }

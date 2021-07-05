@@ -32,6 +32,10 @@ public:
     __r { r },
     __th { th }
   {}
+  // using `explicit` keyword makes sure that compiler can't use the below function for 
+  // implicit conversion, for instance when passing `polar` argument to some `cartesian` parameter function.
+  // this applies to constructors as well, when used implicitly as convertors.
+  // explicit operator cartesian() const
   operator cartesian() const
   {
     return cartesian { __r * std::cos( __th * M_PI / 180.0 ), __r * std::sin( __th * M_PI / 180.0 ) };
@@ -53,7 +57,7 @@ cartesian::operator polar() const
 inline
 void testCustomCast()
 {
-  cartesian point { 8.0, 6.0 };
+  cartesian point { 8, 6 };
   point.view();
   auto point2 { static_cast<polar>(point) };
   point2.view();

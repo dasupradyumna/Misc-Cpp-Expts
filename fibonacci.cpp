@@ -1,9 +1,10 @@
 // Implementations of algorithms described in `fibonacci.h`
 
 #include "fibonacci.h"
-#include "structs.h"        // Array2d<int>
+#include "structs.h"        // Matrix
 
-#include <vector>
+#include <iostream>         // std::cout
+#include <vector>           // std::vector
 
 int fibonacci_rdp( int count )  // exponential time
 {
@@ -47,28 +48,20 @@ int fibonacci_idp( int count )  // linear time
 
 int fibonacci_mat( int count )
 {
-  // return count itself for 0, 1
+  // return count as is for 0, 1
   if ( count < 2 ) return count;
 
-  //  TODO  change this code after `Matrix` gets initializer list support
-
   // array that contains the fibonacci matrix to be exponentiated
-  Matrix<int> M { 2, 2 };
-  // {
-  //     { 1, 1 },
-  //     { 1, 0 }
-  // };
-  M[0][0] = 1;
-  M[0][1] = 1;
-  M[1][0] = 1;
+  Matrix<int> M { 2, 2, {
+    { 1, 1 },
+    { 1, 0 }
+  } };
 
-  Matrix<int> R { 2, 2 };        // array that contains the result matrix
-  // {
-  //     { 1, 0 },
-  //     { 0, 1 }
-  // };
-  R[0][0] = 1;
-  R[1][1] = 1;
+  // array that contains the result matrix
+  Matrix<int> R { 2, 2, {
+    { 1, 0 },
+    { 0, 1 }
+  } };
 
   --count;                // Fibonacci(count) = (M ^ count-1)[0][0]
   while ( count )         // exponentiate M to count, but in log(count) time
@@ -107,4 +100,11 @@ int fibonacci_fd( int count )
   }
 
   return series[count];
+}
+
+void testFibonacci( std::function<int( int )> fibonacci, int count )
+{
+  for ( int i { 0 }; i < count; i++ )
+    std::cout << fibonacci( i ) << '\n';
+  std::cout << '\n';
 }

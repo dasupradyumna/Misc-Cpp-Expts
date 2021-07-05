@@ -2,6 +2,7 @@
 #define __structs_h__
 
 #include <cstddef>          // std::size_t
+#include <initializer_list> // std::initializer_list
 
 using size_t = std::size_t;
 
@@ -16,6 +17,7 @@ using size_t = std::size_t;
 template<typename _NumericType>
 class Matrix
 {
+  using InitializerList2D = std::initializer_list<std::initializer_list<_NumericType >>;
   class Row
   {
     /* This class is created for the sole purpose of bounds checking while indexing columns
@@ -41,9 +43,10 @@ class Matrix
 
 public:
 
-  //  TODO  add support for initializer list in constructor (for const Matrix objects)
-  // constructors always zero-initialize the data array
+  // constructors always zero-initialize the data array, unless otherwise specified
   Matrix( const size_t rows, const size_t cols );         // initializes `rows` and `cols`, allocates memory for `data`
+  Matrix( const size_t rows, const size_t cols,
+    InitializerList2D list );                             // constructs an empty `Matrix` and fills it using initializer list
   Matrix( const Matrix& copy );                           // custom copy constructor to make sure pointers are not copied directly
   Matrix( Matrix&& temp );                                // custom move constructor to make sure pointers are not copied directly
   ~Matrix();                                              // deallocates memory held by `data`
