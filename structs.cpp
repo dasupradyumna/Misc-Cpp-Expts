@@ -93,7 +93,7 @@ Matrix<_NumericType>::Matrix( const Matrix& copy ) :
  * Time complexity ~ O(1).
  */
 template<typename _NumericType>
-Matrix<_NumericType>::Matrix( Matrix&& temp ) :
+Matrix<_NumericType>::Matrix( Matrix&& temp ) noexcept :
   Matrix { temp.__rows, temp.__cols }
 {
   std::swap( __data, temp.__data );       // swapping pointers since temp is a temporary object, destroyed at function end
@@ -152,27 +152,42 @@ typename Matrix<_NumericType>::Row& Matrix<_NumericType>::operator[]( const size
  * Pointers themselves are not copied to avoid multiple references to same data.
  * Time complexity ~ O(n^2) or O(rows*cols).
  */
+ //template<typename _NumericType>
+ //void Matrix<_NumericType>::operator=( const Matrix& copy )
+ //{
+ //  if ( this->__rows != copy.__rows || this->__cols != copy.__cols )
+ //    throw std::invalid_argument { "error: source and target matrix dimensions do not match.\n" };
+ //
+ //  std::copy( copy.begin(), copy.end(), this->begin() );
+ //}
+
+ /* Move assignment operator for Matrix.
+  * Rows and columns of LHS and RHS are expected to be equal before assignment.
+  * Pointers are swapped with the temporary object, since it is destroyed at end of this function.
+  * Time complexity ~ O(1).
+  */
+  //template<typename _NumericType>
+  //void Matrix<_NumericType>::operator=( Matrix&& temp ) noexcept
+  //{
+  //  if ( this->__rows != temp.__rows || this->__cols != temp.__cols )
+  //    throw std::invalid_argument { "error: source and target matrix dimensions do not match.\n" };
+  //
+  //  std::swap( __data, temp.__data );
+  //}
+
+  /* Copy-and-Swap idiom (both Move and Copy assignment)
+  /// If this operator is uncommented, comment both copy and move assignment operator overloads above; they will be unnecessary. ///
+  /// This implementation is better in the general case of assigning (replacing) Matrix objects even if they have different sizes. ///
+  /// Utilizes the respective constructor to make the necessary argument object, removing any possibility of bugs in this operator. ///
+   * If an r-value Matrix is passed as an argument, then argument `mat` will be constructed using the move constructor from an r-value.
+   * If an l-value Matrix is passed as an argument, then argument `mat` will be constructed using the copy constructor from an l-value.
+   * Time complexity depends on the type of constructor used for argument `mat`.
+   * Time complexity ~ O(1) [move constructed] OR O(n^2) [copy constructed]
+   */
 template<typename _NumericType>
-void Matrix<_NumericType>::operator=( const Matrix& copy )
+void Matrix<_NumericType>::operator=( Matrix mat )
 {
-  if ( this->__rows != copy.__rows || this->__cols != copy.__cols )
-    throw std::invalid_argument { "error: source and target matrix dimensions do not match.\n" };
-
-  std::copy( copy.begin(), copy.end(), this->begin() );
-}
-
-/* Move assignment operator for Matrix.
- * Rows and columns of LHS and RHS are expected to be equal before assignment.
- * Pointers are swapped with the temporary object, since it is destroyed at end of this function.
- * Time complexity ~ O(1).
- */
-template<typename _NumericType>
-void Matrix<_NumericType>::operator=( Matrix&& temp )
-{
-  if ( this->__rows != temp.__rows || this->__cols != temp.__cols )
-    throw std::invalid_argument { "error: source and target matrix dimensions do not match.\n" };
-
-  std::swap( __data, temp.__data );
+  std::swap( __data, mat.__data );
 }
 
 /* Overload for adding 2 matrices of same dimensions.

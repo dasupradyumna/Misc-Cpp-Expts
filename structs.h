@@ -47,8 +47,8 @@ public:
   Matrix( const size_t rows, const size_t cols );         // initializes `rows` and `cols`, allocates memory for `data`
   Matrix( const size_t rows, const size_t cols,
     InitializerList2D list );                             // constructs an empty `Matrix` and fills it using initializer list
-  Matrix( const Matrix& copy );                           // custom copy constructor to make sure pointers are not copied directly
-  Matrix( Matrix&& temp );                                // custom move constructor to make sure pointers are not copied directly
+  Matrix( const Matrix& copy );                           // custom copy constructor to prevent shallow copy of pointers
+  Matrix( Matrix&& temp ) noexcept;                       // custom move constructor to prevent shallow copy of pointers
   ~Matrix();                                              // deallocates memory held by `data`
   const size_t rows() const;                              // returns the number of rows in the 2d array
   const size_t cols() const;                              // returns the number of columns in the 2d array
@@ -56,8 +56,9 @@ public:
   _NumericType* const end() const;                        // returns iterator to one position after the end of the array
 
   Row& operator[]( const size_t row ) const;              // bounds check and returns reference to desired row
-  void operator=( const Matrix& copy );                   // custom copy assignment operator
-  void operator=( Matrix&& temp );                        // custom move assignment operator
+  //void operator=( const Matrix& copy );                   // custom copy assignment operator
+  //void operator=( Matrix&& temp ) noexcept;               // custom move assignment operator
+  void operator=( Matrix mat );                           // handles both move and copy assignment (copy-and-swap idiom)
   Matrix operator+( const Matrix& other ) const;          // add 2 matrices, if their dimensions are valid
   void operator+=( const Matrix& other );                 // overloading shorthand operator (addition)
   Matrix operator-() const;                               // flip the signs of all elements of matrix
