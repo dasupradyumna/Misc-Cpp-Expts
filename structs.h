@@ -3,13 +3,14 @@
 
 #include <cstddef>          // std::size_t
 #include <initializer_list> // std::initializer_list
+#include <memory>           // std::make_unique, std::unique_ptr
 
 using size_t = std::size_t;
 
 /*///////////////////////////// Generic 2D Rectangular Array (Matrix), using dynamic contiguous memory ///////////////////////////////
  *
  * Instead of using an array of dynamically allocated pointers for each row, which can result in
- * each row being physically separated in the heap, we allocate a single chunk of contiguous memory
+ * each row being (possibly) physically separated in the heap, we allocate a single chunk of contiguous memory
  * to hold the entire array.
  * Subscript operator is then overloaded to index into the 1D memory chunk using the traditional 2D
  * subscripts [][]. Support is provided for the range-based for loop iteration as well.
@@ -18,6 +19,7 @@ template<typename _NumericType>
 class Matrix
 {
   using InitializerList2D = std::initializer_list<std::initializer_list<_NumericType >>;
+
   class Row
   {
     /* This class is created for the sole purpose of bounds checking while indexing columns
@@ -25,12 +27,12 @@ class Matrix
      * and appropriate changes to `Matrix` attributes and method return types should work fine.
      * This class cannot be accessed outside Matrix (except by friends) since it is private.
      */
-    const size_t __cols;
+    const size_t __cols;                                  // number of values (columns) in the row
     _NumericType* const __row;                            // pointer to first element of current row
 
   public:
 
-    Row( _NumericType* const row, const size_t cols );    // initializes `__row` to nullptr, links to an `Matrix` instance
+    Row( _NumericType* const row, const size_t cols );    // basic constructor
     Row( const Row& ) = delete;                           // disabling copy semantics
     Row( Row&& ) noexcept = default;                      // enabling move semantics
     _NumericType& operator[]( const size_t col ) const;   // bounds check and returns reference to desired element
@@ -38,26 +40,26 @@ class Matrix
 
   const size_t __rows;                                    // number of rows in the 2d array
   const size_t __cols;                                    // number of columns in the 2d array
-  _NumericType* __data;                                   // the actual data stored in the 2d array
+  std::unique_ptr<_NumericType[]> __data;                 // the actual data stored in the 2d array
 
 public:
 
-  // constructors always zero-initialize the data array, unless otherwise specified
-  Matrix( const size_t rows, const size_t cols );         // initializes `rows` and `cols`, allocates memory for `data`
+  Matrix( const size_t rows, const size_t cols );         // basic constructor, throws an exception if either argument is 0
   Matrix( const size_t rows, const size_t cols,
           InitializerList2D list );                       // constructs an empty `Matrix` and fills it using initializer list
   Matrix( const Matrix& copy );                           // custom copy constructor to prevent shallow copy of pointers
   Matrix( Matrix&& temp ) noexcept;                       // custom move constructor to prevent shallow copy of pointers
-  ~Matrix();                                              // deallocates memory held by `data`
+  ~Matrix() = default;                                    // default destructor
   const size_t rows() const;                              // returns the number of rows in the 2d array
   const size_t cols() const;                              // returns the number of columns in the 2d array
   _NumericType* begin() const;                            // returns iterator to the start of the array
   _NumericType* const end() const;                        // returns iterator to one position after the end of the array
 
-  Row operator[]( const size_t row ) const;               // bounds check and returns reference to desired row
+  Row operator[]( const size_t row ) const;               // bounds check and returns the desired row object
   //void operator=( const Matrix& copy );                   // custom copy assignment operator
   //void operator=( Matrix&& temp ) noexcept;               // custom move assignment operator
   void operator=( Matrix mat );                           // handles both move and copy assignment (copy-and-swap idiom)
+  Matrix operator+() const;                               // unary positive operator overload
   Matrix operator+( const Matrix& other ) const;          // add 2 matrices, if their dimensions are valid
   void operator+=( const Matrix& other );                 // overloading shorthand operator (addition)
   Matrix operator-() const;                               // flip the signs of all elements of matrix

@@ -2,12 +2,13 @@
 
 #include "structs.h"
 
-#include <algorithm>        // std::copy, std::swap
+#include <algorithm>        // std::copy
 #include <cstdint>          // std::int_fast16_t, std::int_fast32_t, std::int_fast64_t
 #include <cstdlib>          // std::abs, std::srand, std::rand
 #include <ctime>            // std::time
-#include <iostream>         // std::cin, std::cout, std::cerr
+#include <iostream>         // std::cin, std::cout
 #include <stdexcept>        // std::invalid_argument, std::out_of_range
+#include <utility>          // std::move
 
 //////////////////////////////////// 2D Flat Rectangular Array //////////////////////////////////////
 
@@ -37,7 +38,7 @@ template<typename _NumericType>
 Matrix<_NumericType>::Matrix( const size_t rows, const size_t cols ) :
   __rows { rows },
   __cols { cols },
-  __data { (rows * cols) ? new _NumericType[rows * cols] { 0 } : nullptr }
+  __data { (rows * cols) ? std::make_unique<_NumericType[]>( rows * cols ) : nullptr }
 {
   if ( !__data ) throw std::invalid_argument { "error: matrix has either 0 rows or 0 columns or both.\n" };
 }
@@ -50,22 +51,17 @@ template<typename _NumericType>
 Matrix<_NumericType>::Matrix( const size_t rows, const size_t cols, InitializerList2D list ) :
   Matrix { rows, cols }
 {
-  size_t list_row { 0ULL };
+  if ( rows < list.size() )
+    throw std::invalid_argument { "error: too many rows to unpack into Matrix.\n" };
+
+  auto row_begin { __data.get() };
   for ( auto innerlist : list )
   {
-    if ( list_row >= rows )
-      throw std::invalid_argument { "error: too many row values to unpack into Matrix.\n" };
+    if ( cols < innerlist.size() )
+      throw std::invalid_argument { "error: too many columns to unpack into Matrix.\n" };
 
-    size_t list_col { 0ULL };
-    for ( _NumericType value : innerlist )
-    {
-      if ( list_col >= cols )
-        throw std::invalid_argument { "error: too many column values to unpack into Matrix.\n" };
-
-      __data[list_row * __cols + list_col] = value;
-      ++list_col;
-    }
-    ++list_row;
+    std::copy( innerlist.begin(), innerlist.end(), row_begin );
+    row_begin += cols;
   }
 }
 
@@ -93,17 +89,10 @@ Matrix<_NumericType>::Matrix( const Matrix& copy ) :
  */
 template<typename _NumericType>
 Matrix<_NumericType>::Matrix( Matrix&& temp ) noexcept :
-  Matrix { temp.__rows, temp.__cols }
-{
-  std::swap( __data, temp.__data );       // swapping pointers since temp is a temporary object, destroyed at function end
-}
-
-// Basic destructor.
-template<typename _NumericType>
-Matrix<_NumericType>::~Matrix()
-{
-  delete[] __data;
-}
+  __rows { temp.__rows },
+  __cols { temp.__cols },
+  __data { std::move( temp.__data ) }             // "stealing" temp's array into the object being constructed
+{ }
 
 // Returns the value of rows attribute.
 template<typename _NumericType>
@@ -122,16 +111,15 @@ const size_t Matrix<_NumericType>::cols() const { return __cols; }
  */
 template<typename _NumericType>
 inline
-_NumericType* Matrix<_NumericType>::begin() const { return __data; }
+_NumericType* Matrix<_NumericType>::begin() const { return __data.get(); }
 
 // Returns a const iterator to the end of the array, since it is used only for bound-checking.
 template<typename _NumericType>
 inline
-_NumericType* const Matrix<_NumericType>::end() const { return __data + __rows * __cols; }
+_NumericType* const Matrix<_NumericType>::end() const { return __data.get() + __rows * __cols; }
 
 /* This function is called for the first index (rows) of the array.
- * It returns a reference to a `Row` object, which calls the subscript method for the
- * second index (columns). Finally, it returns the desired value from the array.
+ * It returns a `Row` object, which calls the subscript method for the second index (columns).
  */
 template<typename _NumericType>
 typename Matrix<_NumericType>::Row Matrix<_NumericType>::operator[]( const size_t row ) const
@@ -139,7 +127,7 @@ typename Matrix<_NumericType>::Row Matrix<_NumericType>::operator[]( const size_
   if ( row >= __rows )
     throw std::out_of_range { "error: row index out of bounds.\n" };
 
-  return Row { __data + row * __cols, __cols };
+  return Row { __data.get() + row * __cols, __cols };
 }
 
 /* Copy assignment operator for Matrix.
@@ -168,7 +156,7 @@ typename Matrix<_NumericType>::Row Matrix<_NumericType>::operator[]( const size_
   //  if ( this->__rows != temp.__rows || this->__cols != temp.__cols )
   //    throw std::invalid_argument { "error: source and target matrix dimensions do not match.\n" };
   //
-  //  std::swap( __data, temp.__data );
+  //  __data = std::move( temp.__data );
   //}
 
   /* Copy-and-Swap idiom (both Move and Copy assignment)
@@ -183,8 +171,15 @@ typename Matrix<_NumericType>::Row Matrix<_NumericType>::operator[]( const size_
 template<typename _NumericType>
 void Matrix<_NumericType>::operator=( Matrix mat )
 {
-  std::swap( __data, mat.__data );
+  if ( this->__rows != mat.__rows || this->__cols != mat.__cols )
+    throw std::invalid_argument { "error: source and target matrix dimensions do not match.\n" };
+
+  __data = std::move( mat.__data );
 }
+
+// Overload for unary positive operator. Constant time complexity.
+template<typename _NumericType>
+Matrix<_NumericType> Matrix<_NumericType>::operator+() const { return *this; }
 
 /* Overload for adding 2 matrices of same dimensions.
  * Rows and columns of LHS and RHS are expected to be equal before addition.
@@ -196,7 +191,7 @@ Matrix<_NumericType> Matrix<_NumericType>::operator+( const Matrix& other ) cons
   if ( this->__rows != other.__rows || this->__cols != other.__cols )
     throw std::invalid_argument { "error: dimensions of addend matrices do not match.\n" };
 
-  Matrix result { this->__rows, other.__cols };
+  Matrix result { __rows, __cols };
   for ( size_t i { 0ULL }; i < __rows * __cols; ++i )
     result.__data[i] = this->__data[i] + other.__data[i];
 
@@ -227,7 +222,7 @@ Matrix<_NumericType> Matrix<_NumericType>::operator-( const Matrix& other ) cons
   if ( this->__rows != other.__rows || this->__cols != other.__cols )
     throw std::invalid_argument { "error: minuend and subtrahend matrix dimensions do not match.\n" };
 
-  Matrix result { this->__rows, other.__cols };
+  Matrix result { __rows, __cols };
   for ( size_t i { 0ULL }; i < __rows * __cols; ++i )
     result.__data[i] = this->__data[i] - other.__data[i];
 
@@ -256,7 +251,7 @@ Matrix<_NumericType> Matrix<_NumericType>::operator*( const Matrix& other ) cons
   for ( size_t m { 0ULL }; m < result.__rows; ++m )
     for ( size_t n { 0ULL }; n < result.__cols; ++n )
       for ( size_t p { 0ULL }; p < this->__cols; ++p )
-        *(result.__data + m * __cols + n) += *(__data + m * __cols + p) * *(other.__data + p * __cols + n);
+        result.__data[m * __cols + n] += __data[m * __cols + p] * other.__data[p * __cols + n];
 
   return result;
 }
@@ -290,7 +285,7 @@ void Matrix<_NumericType>::view() const
   for ( size_t row { 0ULL }; row < __rows; ++row )
   {
     for ( size_t col { 0ULL }; col < __cols; ++col )
-      std::cout << *(__data + row * __cols + col) << ' ';
+      std::cout << __data[row * __cols + col] << ' ';
     std::cout << '\n';
   }
   std::cout << '\n';
@@ -321,6 +316,7 @@ Matrix<_NumericType> operator*( const _NumericType value, const Matrix<_NumericT
  *
  * Below is explicit instantiation method.
  */
+template class Matrix<std::int_fast16_t>;
 template class Matrix<std::int_fast32_t>;
 template class Matrix<std::int_fast64_t>;
 template class Matrix<float>;
@@ -341,40 +337,40 @@ void testArray2d()
 
   A.view();                               // testing view() method
 
-  // while ( true )                          // testing traditional [][] indexing with bounds check
-  // {
-  //   int r { };
-  //   size_t c { };
-  //   std::cout << "Enter row and column indices (negative input to quit) : ";
-  //   std::cin >> r;
-  //   if ( r < 0 ) break;
-  //   std::cin >> c;
-  //   try
-  //   {
-  //     std::cout << A[static_cast<size_t>(r)][c] << '\n';
-  //   }
-  //   catch ( std::out_of_range& exception )
-  //   {
-  //     std::cerr << exception.what();
-  //   }
-  // }
+  //while ( true )                          // testing traditional [][] indexing with bounds check
+  //{
+  //  int r { };
+  //  size_t c { };
+  //  std::cout << "Enter row and column indices (negative input to quit) : ";
+  //  std::cin >> r;
+  //  if ( r < 0 ) break;
+  //  std::cin >> c;
+  //  try
+  //  {
+  //    std::cout << A[static_cast<size_t>(r)][c] << '\n';
+  //  }
+  //  catch ( std::out_of_range& exception )
+  //  {
+  //    std::cerr << exception.what();
+  //  }
+  //}
 
-  Matrix<double> B { 3, 3 };
-  for ( auto& el : B )
+  Matrix<double> B { A };                 // testing copy constructor
+  for ( auto& el : B )                    // testing iterator for loop 
     el = (std::rand() % 101) / 100.0;
   B.view();
 
-  Matrix<double> C { A + B };             // testing addition overload
+  Matrix<double> C { A + B };             // testing addition overload + move constructor
   C.view();
-  C = A - B;                              // testing subtraction overload
+  C = A - B;                              // testing subtraction overload + move assignment
   C.view();
-  C = A * B;                              // testing multiplication overload
+  C = A * B;                              // testing multiplication overload (+ move assignment)
   C.view();
-  C = Matrix<double> { 3, 3 };            // move constructor
+  C = A;                                  // copy assignment
   C.view();
-  C += A;                                 // testing shorthand addition
+  C -= A;                                 // testing shorthand subtraction
   C.view();
-  C -= B;                                 // testing shorthand subtraction
+  C += B;                                 // testing shorthand addition
   C.view();
   C *= Matrix<double> { 3, 3, {           // testing shorthand multiplication
     { 0.5, 0, 0 },
@@ -395,7 +391,7 @@ template<typename _Integer>
 IntRange<_Integer>::Iterator::Iterator( const _Integer value, const _Integer step ) :
   __value { value },
   __step { step }
-{}
+{ }
 
 /* A hack taking advantage of the internal mechanism of for-each loops.
  * Checking equality `__value` and `other` to terminate the iteration will break down in case of "end" value
@@ -429,7 +425,7 @@ IntRange<_Integer>::IntRange( const _Integer begin, const _Integer end, const _I
   __end { end },
   // correctly initializes step value irrespective of sign mismatch by the user
   __step { (__begin < __end) ? std::abs( step ) : -std::abs( step ) }
-{}
+{ }
 
 template<typename _Integer>
 IntRange<_Integer>::IntRange( const _Integer end ) :
