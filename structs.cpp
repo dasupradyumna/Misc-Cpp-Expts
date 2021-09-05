@@ -15,19 +15,19 @@
 
 // Basic constructor.
 template<typename _NumericType>
-Matrix<_NumericType>::Row::Row( const Matrix* link ) :
-  __row { nullptr },
-  __link { link }
+Matrix<_NumericType>::Row::Row( _NumericType* const row, const size_t cols ) :
+  __row { row },
+  __cols { cols }
 {}
 
 // Returns value by indexing the input column in current Row object.
 template<typename _NumericType>
 _NumericType& Matrix<_NumericType>::Row::operator[]( const size_t col ) const
 {
-  if ( col >= __link->__cols )
+  if ( col >= __cols )
     throw std::out_of_range { "error: column index out of bounds.\n" };
 
-  return __row[col];
+  return *(__row + col);
 }
 
 ////////// Matrix //////////
@@ -37,8 +37,7 @@ template<typename _NumericType>
 Matrix<_NumericType>::Matrix( const size_t rows, const size_t cols ) :
   __rows { rows },
   __cols { cols },
-  __data { (rows * cols) ? new _NumericType[rows * cols] { 0 } : nullptr },
-  __ptrRow { new Row { this } }
+  __data { (rows * cols) ? new _NumericType[rows * cols] { 0 } : nullptr }
 {
   if ( !__data ) throw std::invalid_argument { "error: matrix has either 0 rows or 0 columns or both.\n" };
 }
@@ -104,7 +103,6 @@ template<typename _NumericType>
 Matrix<_NumericType>::~Matrix()
 {
   delete[] __data;
-  delete __ptrRow;
 }
 
 // Returns the value of rows attribute.
@@ -136,14 +134,12 @@ _NumericType* const Matrix<_NumericType>::end() const { return __data + __rows *
  * second index (columns). Finally, it returns the desired value from the array.
  */
 template<typename _NumericType>
-typename Matrix<_NumericType>::Row& Matrix<_NumericType>::operator[]( const size_t row ) const
+typename Matrix<_NumericType>::Row Matrix<_NumericType>::operator[]( const size_t row ) const
 {
-  if ( row < __rows )
-    __ptrRow->__row = &__data[row * __cols];
-  else
+  if ( row >= __rows )
     throw std::out_of_range { "error: row index out of bounds.\n" };
 
-  return *__ptrRow;
+  return Row { __data + row * __cols, __cols };
 }
 
 /* Copy assignment operator for Matrix.
@@ -260,7 +256,7 @@ Matrix<_NumericType> Matrix<_NumericType>::operator*( const Matrix& other ) cons
   for ( size_t m { 0ULL }; m < result.__rows; ++m )
     for ( size_t n { 0ULL }; n < result.__cols; ++n )
       for ( size_t p { 0ULL }; p < this->__cols; ++p )
-        result[m][n] += (*this)[m][p] * other[p][n];
+        *(result.__data + m * __cols + n) += *(__data + m * __cols + p) * *(other.__data + p * __cols + n);
 
   return result;
 }

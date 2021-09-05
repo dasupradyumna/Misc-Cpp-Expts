@@ -6,7 +6,7 @@
 #include <iostream>         // std::cout
 #include <vector>           // std::vector
 
-int fibonacci_rdp( int count )  // exponential time
+int fibonacci_rdp( size_t count )  // exponential time
 {
   // stores the calculated values of the fibonacci series
   static std::vector<int> series { 0, 1 };
@@ -22,7 +22,7 @@ int fibonacci_rdp( int count )  // exponential time
 }
 
 // commented code for non-memoized algorithm
-int fibonacci_idp( int count )  // linear time
+int fibonacci_idp( size_t count )  // linear time
 {
   // if ( count == 0 ) return 0;
   // stores the calculated values of the fibonacci series
@@ -46,10 +46,10 @@ int fibonacci_idp( int count )  // linear time
   return series[count]; // B;
 }
 
-int fibonacci_mat( int count )
+int fibonacci_mat( size_t count )
 {
   // return count as is for 0, 1
-  if ( count < 2 ) return count;
+  if ( count < 2 ) return static_cast<int>(count);
 
   // array that contains the fibonacci matrix to be exponentiated
   Matrix<int> M { 2, 2, {
@@ -81,7 +81,7 @@ int fibonacci_mat( int count )
  * F(2k) = F(k)^2 + 2*F(k)*F(k-1), even doubling
  * F(2k+1) = F(k)^2 + F(k+1)^2, odd doubling
  */
-int fibonacci_fd( int count )
+int fibonacci_fd( size_t count )
 {
   // stores the calculated values of the fibonacci series
   static std::vector<int> series { 0, 1 };
@@ -89,7 +89,7 @@ int fibonacci_fd( int count )
   // if value has not been calculated previously, add it
   if ( count >= series.size() )
   {
-    int k = count >> 1;
+    size_t k = count >> 1;
     series.push_back(
       // doubling formula obtained from fibonacci series
       fibonacci_fd( k ) * fibonacci_fd( k ) +
@@ -102,7 +102,7 @@ int fibonacci_fd( int count )
   return series[count];
 }
 
-void testFibonacci( std::function<int( int )> fibonacci, int count )
+void testFibonacci( std::function<int( size_t )> fibonacci, int count )
 {
   for ( int i { 0 }; i < count; i++ )
     std::cout << fibonacci( i ) << '\n';

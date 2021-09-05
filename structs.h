@@ -25,28 +25,27 @@ class Matrix
      * and appropriate changes to `Matrix` attributes and method return types should work fine.
      * This class cannot be accessed outside Matrix (except by friends) since it is private.
      */
-    const Matrix* const __link;                           // nested class can access parent's private attributes (since C++11)
+    const size_t __cols;
+    _NumericType* const __row;                            // pointer to first element of current row
 
   public:
 
-    // public attribute for access in Matrix methods
-    _NumericType* __row;                                  // pointer to first element of current row
-
-    Row( const Matrix* link );                            // initializes `__row` to nullptr, links to an `Matrix` instance
+    Row( _NumericType* const row, const size_t cols );    // initializes `__row` to nullptr, links to an `Matrix` instance
+    Row( const Row& ) = delete;                           // disabling copy semantics
+    Row( Row&& ) noexcept = default;                      // enabling move semantics
     _NumericType& operator[]( const size_t col ) const;   // bounds check and returns reference to desired element
   };
 
   const size_t __rows;                                    // number of rows in the 2d array
   const size_t __cols;                                    // number of columns in the 2d array
   _NumericType* __data;                                   // the actual data stored in the 2d array
-  Row* const __ptrRow;                                    // const pointer to `Row` object for indexing columns
 
 public:
 
   // constructors always zero-initialize the data array, unless otherwise specified
   Matrix( const size_t rows, const size_t cols );         // initializes `rows` and `cols`, allocates memory for `data`
   Matrix( const size_t rows, const size_t cols,
-    InitializerList2D list );                             // constructs an empty `Matrix` and fills it using initializer list
+          InitializerList2D list );                       // constructs an empty `Matrix` and fills it using initializer list
   Matrix( const Matrix& copy );                           // custom copy constructor to prevent shallow copy of pointers
   Matrix( Matrix&& temp ) noexcept;                       // custom move constructor to prevent shallow copy of pointers
   ~Matrix();                                              // deallocates memory held by `data`
@@ -55,7 +54,7 @@ public:
   _NumericType* begin() const;                            // returns iterator to the start of the array
   _NumericType* const end() const;                        // returns iterator to one position after the end of the array
 
-  Row& operator[]( const size_t row ) const;              // bounds check and returns reference to desired row
+  Row operator[]( const size_t row ) const;               // bounds check and returns reference to desired row
   //void operator=( const Matrix& copy );                   // custom copy assignment operator
   //void operator=( Matrix&& temp ) noexcept;               // custom move assignment operator
   void operator=( Matrix mat );                           // handles both move and copy assignment (copy-and-swap idiom)
