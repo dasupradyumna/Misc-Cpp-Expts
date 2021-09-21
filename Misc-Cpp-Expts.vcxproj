@@ -144,12 +144,14 @@
     <ClCompile Include="algos.cpp" />
     <ClCompile Include="fibonacci.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="sort.cpp" />
     <ClCompile Include="structs.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="algos.h" />
     <ClInclude Include="customcast.h" />
     <ClInclude Include="fibonacci.h" />
+    <ClInclude Include="sort.h" />
     <ClInclude Include="structs.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
