@@ -11,6 +11,7 @@ enum class SortType
   Insertion,
   Merge,
   Quick,
+  Shell,
   STD
 };
 
@@ -41,6 +42,8 @@ class sort
   void __merge( _Iter begin, _Iter end, _Pred pred );
   template<typename _Iter, typename _Pred>
   void __quick( _Iter begin, _Iter end, _Pred pred );
+  template<typename _Iter, typename _Pred>
+  void __shell( _Iter begin, _Iter end, _Pred pred );
 
 public:
 

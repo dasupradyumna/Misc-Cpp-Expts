@@ -59,14 +59,8 @@ template<typename _Iter, typename _Pred>
 void sort::__insertion( _Iter begin, _Iter end, _Pred pred )
 {
   for ( _Iter current { begin }; ++current != end; )
-  {
-    _Iter j { current };
-    while ( j != begin && pred( *j, *(j - 1) ) )
-    {
+    for ( _Iter j { current }; j != begin && pred( *j, *(j - 1) ); --j )
       std::iter_swap( j, j - 1 );
-      --j;
-    }
-  }
 }
 
 template<typename _Iter, typename _Pred>
@@ -191,6 +185,23 @@ void sort::__quick( _Iter begin, _Iter end, _Pred pred )
 }
 
 template<typename _Iter, typename _Pred>
+void sort::__shell( _Iter begin, _Iter end, _Pred pred )
+{
+  using diff_t = typename std::iterator_traits<_Iter>::difference_type;
+  diff_t width { std::distance( begin, end ) };
+  diff_t gap { 1 };
+  while ( gap < width ) gap = 3 * gap + 1;
+  gap /= 3;
+
+  for ( ; gap > 0; gap /= 3 )
+    for ( _Iter i { begin + gap }; i != end; ++i )
+      for ( _Iter j { i };
+            std::distance( begin, j ) >= gap && pred( *j, *(j - gap) );
+            j -= gap )
+        std::iter_swap( j, j - gap );
+}
+
+template<typename _Iter, typename _Pred>
 void sort::operator()( _Iter begin, _Iter end, _Pred pred )
 {
   if ( begin == end || begin + 1 == end )
@@ -203,6 +214,7 @@ void sort::operator()( _Iter begin, _Iter end, _Pred pred )
     case SortType::Insertion: __insertion( begin, end, pred ); break;
     case SortType::Merge: __merge( begin, end, pred ); break;
     case SortType::Quick: __quick( begin, end, pred ); break;
+    case SortType::Shell: __shell( begin, end, pred ); break;
     case SortType::STD: std::sort( begin, end, pred ); break;
   }
 }
@@ -224,7 +236,7 @@ void testSort()
     std::cout << el << ' ';
   std::cout << "\n\n";
 
-  sort sorter { SortType::Quick };
+  sort sorter { SortType::Shell };
   sorter( A.begin(), A.end() );
   std::cout << std::boolalpha << sort::check( A.begin(), A.end() ) << '\n';
 
