@@ -12,6 +12,7 @@ enum class SortType
   Merge,
   Quick,
   Shell,
+  Heap,
   STD
 };
 
@@ -33,27 +34,31 @@ class sort
   SortType __type { };
 
   template<typename _Iter, typename _Pred>
-  void __bubble( _Iter begin, _Iter end, _Pred pred );
+  void __bubble( const _Iter begin, const _Iter end, _Pred pred );
   template<typename _Iter, typename _Pred>
-  void __selection( _Iter begin, _Iter end, _Pred pred );
+  void __selection( const _Iter begin, const _Iter end, _Pred pred );
   template<typename _Iter, typename _Pred>
-  void __insertion( _Iter begin, _Iter end, _Pred pred );
+  void __insertion( const _Iter begin, const _Iter end, _Pred pred );
   template<typename _Iter, typename _Pred>
-  void __merge( _Iter begin, _Iter end, _Pred pred );
+  void __merge( const _Iter begin, const _Iter end, _Pred pred );
   template<typename _Iter, typename _Pred>
-  void __quick( _Iter begin, _Iter end, _Pred pred );
+  void __quick( const _Iter begin, const _Iter end, _Pred pred );
   template<typename _Iter, typename _Pred>
-  void __shell( _Iter begin, _Iter end, _Pred pred );
+  void __shell( const _Iter begin, const _Iter end, _Pred pred );
+  template<typename _Iter, typename _Pred>
+  void __heap( const _Iter begin, const _Iter end, _Pred pred );
+  template<typename _Iter, typename _Pred>
+  void __std( const _Iter begin, const _Iter end, _Pred pred );
 
 public:
 
   sort() = delete;
   sort( SortType type = SortType::STD );
   template<typename _Iter, typename _Pred = std::less<>>
-  static bool check( _Iter begin, _Iter _end, _Pred pred = std::less<> {} );
+  static bool check( const _Iter begin, const _Iter _end, _Pred pred = std::less<> {} );
 
   template<typename _Iter, typename _Pred = std::less<>>
-  void operator()( _Iter begin, _Iter _end, _Pred pred = std::less<> {} );
+  void operator()( const _Iter begin, const _Iter _end, _Pred pred = std::less<> {} );
 };
 
 void testSort();

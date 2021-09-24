@@ -12,7 +12,7 @@ sort::sort( SortType type ) :
 { }
 
 template<typename _Iter, typename _Pred>
-static bool sort::check( _Iter begin, _Iter end, _Pred pred )
+static bool sort::check( const _Iter begin, const _Iter end, _Pred pred )
 {
   for ( _Iter i { begin }; ++i != end; )
     if ( pred( *i, *(i - 1) ) )
@@ -22,7 +22,7 @@ static bool sort::check( _Iter begin, _Iter end, _Pred pred )
 }
 
 template<typename _Iter, typename _Pred>
-void sort::__bubble( _Iter begin, _Iter end, _Pred pred )
+void sort::__bubble( const _Iter begin, const _Iter end, _Pred pred )
 {
   using diff_t = typename std::iterator_traits<_Iter>::difference_type;
   diff_t nIters { std::distance( begin, end ) - 1 };
@@ -42,7 +42,7 @@ void sort::__bubble( _Iter begin, _Iter end, _Pred pred )
 }
 
 template<typename _Iter, typename _Pred>
-void sort::__selection( _Iter begin, _Iter end, _Pred pred )
+void sort::__selection( const _Iter begin, const _Iter end, _Pred pred )
 {
   for ( _Iter i { begin }; i != end; ++i )
   {
@@ -56,7 +56,7 @@ void sort::__selection( _Iter begin, _Iter end, _Pred pred )
 }
 
 template<typename _Iter, typename _Pred>
-void sort::__insertion( _Iter begin, _Iter end, _Pred pred )
+void sort::__insertion( const _Iter begin, const _Iter end, _Pred pred )
 {
   for ( _Iter current { begin }; ++current != end; )
     for ( _Iter j { current }; j != begin && pred( *j, *(j - 1) ); --j )
@@ -64,7 +64,7 @@ void sort::__insertion( _Iter begin, _Iter end, _Pred pred )
 }
 
 template<typename _Iter, typename _Pred>
-void sort::__merge( _Iter begin, _Iter end, _Pred pred )
+void sort::__merge( const _Iter begin, const _Iter end, _Pred pred )
 {
   using diff_t = typename std::iterator_traits<_Iter>::difference_type;
   using value_t = typename std::iterator_traits<_Iter>::value_type;
@@ -143,7 +143,7 @@ _Iter getPivot( _Iter first, _Iter last, _Pred pred )
 }
 
 template<typename _Iter, typename _Pred>
-void sort::__quick( _Iter begin, _Iter end, _Pred pred )
+void sort::__quick( const _Iter begin, const _Iter end, _Pred pred )
 {
   vector<std::pair<_Iter, _Iter>> stack { { begin, end } };
   while ( stack.size() != 0 )
@@ -185,7 +185,7 @@ void sort::__quick( _Iter begin, _Iter end, _Pred pred )
 }
 
 template<typename _Iter, typename _Pred>
-void sort::__shell( _Iter begin, _Iter end, _Pred pred )
+void sort::__shell( const _Iter begin, const _Iter end, _Pred pred )
 {
   using diff_t = typename std::iterator_traits<_Iter>::difference_type;
   diff_t width { std::distance( begin, end ) };
@@ -202,21 +202,38 @@ void sort::__shell( _Iter begin, _Iter end, _Pred pred )
 }
 
 template<typename _Iter, typename _Pred>
-void sort::operator()( _Iter begin, _Iter end, _Pred pred )
+void sort::__heap( const _Iter begin, const _Iter end, _Pred pred )
+{
+
+}
+
+template<typename _Iter, typename _Pred>
+void sort::__std( const _Iter begin, const _Iter end, _Pred pred )
+{
+  std::sort( begin, end, pred );
+}
+
+template<typename _Iter, typename _Pred>
+void sort::operator()( const _Iter begin, const _Iter end, _Pred pred )
 {
   if ( begin == end || begin + 1 == end )
     return;
 
+  void (sort::*selector)(_Iter, _Iter, _Pred) { nullptr };
+
   switch ( __type )
   {
-    case SortType::Bubble: __bubble( begin, end, pred ); break;
-    case SortType::Selection: __selection( begin, end, pred ); break;
-    case SortType::Insertion: __insertion( begin, end, pred ); break;
-    case SortType::Merge: __merge( begin, end, pred ); break;
-    case SortType::Quick: __quick( begin, end, pred ); break;
-    case SortType::Shell: __shell( begin, end, pred ); break;
-    case SortType::STD: std::sort( begin, end, pred ); break;
+    case SortType::Bubble: selector = &sort::__bubble; break;
+    case SortType::Selection: selector = &sort::__selection; break;
+    case SortType::Insertion: selector = &sort::__insertion; break;
+    case SortType::Merge: selector = &sort::__merge; break;
+    case SortType::Quick: selector = &sort::__quick; break;
+    case SortType::Shell: selector = &sort::__shell; break;
+    case SortType::Heap: selector = &sort::__heap; break;
+    case SortType::STD: selector = &sort::__std; break;
   }
+
+  (this->*selector)(begin, end, pred);
 }
 
 void testSort()
@@ -236,7 +253,7 @@ void testSort()
     std::cout << el << ' ';
   std::cout << "\n\n";
 
-  sort sorter { SortType::Shell };
+  sort sorter { SortType::Heap };
   sorter( A.begin(), A.end() );
   std::cout << std::boolalpha << sort::check( A.begin(), A.end() ) << '\n';
 
