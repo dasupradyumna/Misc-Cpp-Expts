@@ -78,7 +78,7 @@ void sort::__merge( _Iter begin, _Iter end, _Pred pred )
 
   diff_t conSize { std::distance( begin, end ) };
   std::vector<value_t> buffer( conSize );
-  for ( int mergeSize { 2 }; mergeSize >> 1 < conSize; mergeSize <<= 1 )
+  for ( int mergeSize { 2 }; mergeSize / 2 < conSize; mergeSize <<= 1 )
   {
     _Iter subCon { begin };
     buf_iter subBuf { buffer.begin() };
@@ -92,9 +92,9 @@ void sort::__merge( _Iter begin, _Iter end, _Pred pred )
 
       buf_iter first { subBuf };
       const buf_iter bufMid {
-        (std::distance( subBuf, buffer.end() ) <= mergeSize >> 1)
+        std::distance( subBuf, buffer.end() ) <= mergeSize / 2
         ? buffer.end()
-        : subBuf + mergeSize >> 1
+        : subBuf + mergeSize / 2
       };
       buf_iter second { bufMid };
       const buf_iter bufEnd { isLastMerge ? buffer.end() : subBuf + mergeSize };
@@ -113,6 +113,84 @@ void sort::__merge( _Iter begin, _Iter end, _Pred pred )
 }
 
 template<typename _Iter, typename _Pred>
+_Iter getPivot( _Iter first, _Iter last, _Pred pred )
+{
+  auto median3 = [&pred] ( _Iter a, _Iter b, _Iter c ) -> _Iter
+  {
+    return pred( *a, *b )
+      ? (pred( *b, *c )
+          ? b
+          : (pred( *a, *c )
+              ? c
+              : a))
+      : (!pred( *b, *c )
+          ? b
+          : (!pred( *a, *c )
+              ? c
+              : a));
+  };
+
+  using diff_t = typename std::iterator_traits<_Iter>::difference_type;
+  diff_t width { 1 + std::distance( first, last ) };
+  _Iter pivot { first + width / 2 };  // pivot = midpoint
+
+  if ( width >= 50 )  // pivot = median of 3
+  {
+    if ( width >= 100 ) //  pivot = median of 9
+    {
+      first = median3( first, first + width / 8, first + width / 4 );
+      pivot = median3( pivot - width / 8, pivot, pivot + width / 8 );
+      last = median3( last - width / 4, last - width / 8, last );
+    }
+    pivot = median3( first, pivot, last );
+  }
+
+  return pivot;
+}
+
+template<typename _Iter, typename _Pred>
+void sort::__quick( _Iter begin, _Iter end, _Pred pred )
+{
+  vector<std::pair<_Iter, _Iter>> stack { { begin, end } };
+  while ( stack.size() != 0 )
+  {
+    auto [left, right] { stack.pop() };
+    if ( left == right || left + 1 == right ) continue;
+
+    std::iter_swap( left, getPivot( left, right - 1, pred ) );
+
+    _Iter partIdx = [&]
+    {
+      _Iter partL { left + 1 };
+      _Iter partR { right - 1 };
+      while ( true )
+      {
+        while ( pred( *partL, *left ) )
+          if ( partL + 1 == right )   // pivot is maximum value
+            return partR;
+          else
+            ++partL;
+
+        while ( !pred( *partR, *left ) )
+          if ( partR == left + 1 )        // pivot is minimum value
+            return --partR;
+          else
+            --partR;
+
+        if ( partL < partR )
+          std::iter_swap( partL, partR );
+        else
+          return partR;
+      }
+    }();
+
+    std::iter_swap( left, partIdx );
+    stack.push_back( { left, partIdx } );
+    stack.push_back( { partIdx + 1, right } );
+  }
+}
+
+template<typename _Iter, typename _Pred>
 void sort::operator()( _Iter begin, _Iter end, _Pred pred )
 {
   if ( begin == end || begin + 1 == end )
@@ -124,6 +202,7 @@ void sort::operator()( _Iter begin, _Iter end, _Pred pred )
     case SortType::Selection: __selection( begin, end, pred ); break;
     case SortType::Insertion: __insertion( begin, end, pred ); break;
     case SortType::Merge: __merge( begin, end, pred ); break;
+    case SortType::Quick: __quick( begin, end, pred ); break;
     case SortType::STD: std::sort( begin, end, pred ); break;
   }
 }
@@ -132,7 +211,7 @@ void testSort()
 {
   srand( static_cast<unsigned int>(time( nullptr )) );
 
-  constexpr size_t N { 37 };
+  constexpr size_t N { 100 };
   //int A[N] { };
   //for ( int i { -1 }; ++i < N; )
   //  A[i] = rand() % N;
@@ -145,7 +224,7 @@ void testSort()
     std::cout << el << ' ';
   std::cout << "\n\n";
 
-  sort sorter { SortType::Merge };
+  sort sorter { SortType::Quick };
   sorter( A.begin(), A.end() );
   std::cout << std::boolalpha << sort::check( A.begin(), A.end() ) << '\n';
 
